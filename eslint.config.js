@@ -55,14 +55,14 @@ export default defineConfig([
         React: 'readonly',
       },
       parserOptions: {
-        project: ['./tsconfig.json'],
+        project: ['./tsconfig.app.json', './tsconfig.node.json', './tsconfig.storybook.json'],
         tsconfigRootDir: import.meta.dirname,
       },
     },
     settings: {
       'import/resolver': {
         typescript: {
-          project: './tsconfig.json',
+          project: './tsconfig.app.json',
         },
         node: {
           extensions: ['.js', '.jsx', '.ts', '.tsx'],
@@ -99,16 +99,6 @@ export default defineConfig([
               pattern: 'react',
               group: 'builtin',
               position: 'before',
-            },
-            {
-              pattern: '@ai-sdk/**',
-              group: 'external',
-              position: 'after',
-            },
-            {
-              pattern: 'ai',
-              group: 'external',
-              position: 'after',
             },
             {
               pattern: '../types',
