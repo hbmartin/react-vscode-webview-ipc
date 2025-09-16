@@ -47,64 +47,84 @@ export type ViewApiMessage = ViewApiRequest | ViewApiResponse | ViewApiError | V
 /**
  * Type guard to check if a message is a valid API request
  */
-export function isViewApiRequest(msg: any): msg is ViewApiRequest {
+export function isViewApiRequest(message: unknown): message is ViewApiRequest {
   return (
-    msg &&
-    typeof msg === 'object' &&
-    msg.type === 'request' &&
-    typeof msg.id === 'string' &&
-    typeof msg.key === 'string' &&
-    Array.isArray(msg.params) &&
-    (msg.context === undefined ||
-      (typeof msg.context === 'object' &&
-        typeof msg.context.viewId === 'string' &&
-        typeof msg.context.viewType === 'string' &&
-        typeof msg.context.timestamp === 'number'))
+    message !== null &&
+    message !== undefined &&
+    typeof message === 'object' &&
+    'type' in message &&
+    message.type === 'request' &&
+    'id' in message &&
+    typeof message.id === 'string' &&
+    'key' in message &&
+    typeof message.key === 'string' &&
+    'params' in message &&
+    Array.isArray(message.params) &&
+    'context' in message &&
+    (message.context === undefined ||
+      (typeof message.context === 'object' &&
+        message.context !== null &&
+        'viewId' in message.context &&
+        'viewType' in message.context &&
+        'timestamp' in message.context &&
+        typeof message.context.viewId === 'string' &&
+        typeof message.context.viewType === 'string' &&
+        typeof message.context.timestamp === 'number'))
   );
 }
 
 /**
  * Type guard to check if a message is a valid API response
  */
-export function isViewApiResponse(msg: any): msg is ViewApiResponse {
+export function isViewApiResponse(message: unknown): message is ViewApiResponse {
   return (
-    msg !== null &&
-    msg !== undefined &&
-    typeof msg === 'object' &&
-    msg.type === 'response' &&
-    typeof msg.id === 'string'
+    message !== null &&
+    message !== undefined &&
+    typeof message === 'object' &&
+    'type' in message &&
+    message.type === 'response' &&
+    'id' in message &&
+    typeof message.id === 'string'
   );
 }
 
 /**
  * Type guard to check if a message is a valid API error
  */
-export function isViewApiError(msg: any): msg is ViewApiError {
+export function isViewApiError(message: unknown): message is ViewApiError {
   return (
-    msg &&
-    typeof msg === 'object' &&
-    msg.type === 'error' &&
-    typeof msg.id === 'string' &&
-    typeof msg.value === 'string'
+    message !== null &&
+    message !== undefined &&
+    typeof message === 'object' &&
+    'type' in message &&
+    message.type === 'error' &&
+    'id' in message &&
+    typeof message.id === 'string' &&
+    'value' in message &&
+    typeof message.value === 'string'
   );
 }
 
 /**
  * Type guard to check if a message is a valid API event
  */
-export function isViewApiEvent(msg: any): msg is ViewApiEvent {
+export function isViewApiEvent(message: unknown): message is ViewApiEvent {
   return (
-    msg &&
-    typeof msg === 'object' &&
-    msg.type === 'event' &&
-    typeof msg.key === 'string' &&
-    Array.isArray(msg.value)
+    message !== null &&
+    message !== undefined &&
+    typeof message === 'object' &&
+    'type' in message &&
+    message.type === 'event' &&
+    'key' in message &&
+    typeof message.key === 'string' &&
+    'value' in message &&
+    Array.isArray(message.value)
   );
 }
 
 export type WebviewLayout = 'sidebar' | 'panel';
 
-export interface WebviewContext {
+export interface WebviewContextData {
   layout: WebviewLayout;
   extensionUri: string;
   logoUris?: {
@@ -118,9 +138,7 @@ export interface WebviewContext {
 
 // VS Code webview API
 export interface VsCodeApi {
-  postMessage(message: any): Thenable<boolean>;
-  getState(): any;
-  setState(state: any): void;
+  postMessage(message: unknown): Thenable<boolean>;
+  getState(): unknown;
+  setState(state: unknown): void;
 }
-
-export declare function acquireVsCodeApi(): VsCodeApi;

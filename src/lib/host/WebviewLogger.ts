@@ -1,19 +1,26 @@
 import type { VsCodeApi } from '../types';
 import { LogLevel, type ILogger } from './ILogger';
 
-interface LogMessage {
+export interface LogMessage {
   type: 'log';
   level: LogLevel;
   message: string;
-  data?: Record<any, any>;
+  data?: Record<string, unknown>;
 }
 
-export function isLogMessage(value: any): value is LogMessage {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
-  if (!Object.prototype.hasOwnProperty.call(value, 'type')) return false;
-  if (value.type !== 'log') return false;
-  if (!Object.prototype.hasOwnProperty.call(value, 'level')) return false;
-  if (!Object.prototype.hasOwnProperty.call(value, 'message')) return false;
+export function isLogMessage(value: unknown): value is LogMessage {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  if (!('type' in value) || value.type !== 'log') {
+    return false;
+  }
+  if (!('level' in value) || typeof value.level !== 'number') {
+    return false;
+  }
+  if (!('message' in value) || typeof value.message !== 'string') {
+    return false;
+  }
   return true;
 }
 

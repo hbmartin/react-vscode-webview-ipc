@@ -4,16 +4,16 @@
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export interface ILogger {
-    debug(message: string, data?: Record<any, any>): void;
-    info(message: string, data?: Record<any, any>): void;
-    warn(message: string, data?: Record<any, any>): void;
-    error(message: string, data?: Record<any, any>): void;
-    dispose(): void;
+  debug(message: string, data?: Record<string, unknown>): void;
+  info(message: string, data?: Record<string, unknown>): void;
+  warn(message: string, data?: Record<string, unknown>): void;
+  error(message: string, data?: Record<string, unknown>): void;
+  dispose(): void;
 }
 
 export enum LogLevel {
-    DEBUG,
-    INFO,
-    WARN,
-    ERROR,
+  DEBUG,
+  INFO,
+  WARN,
+  ERROR,
 }
