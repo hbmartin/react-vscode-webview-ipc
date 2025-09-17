@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { LogLevel, type ILogger } from './ILogger';
+import { LogLevel, type ILogger } from '../types';
 
 export const disallowedLogKeys = ['password', 'secret', 'token', 'apiKey', 'apiSecret', 'content'];
 

@@ -9,8 +9,8 @@ import {
   type HostCalls,
   type RequestContext,
   type ViewApiRequest,
-  type VsCodeApi,
 } from '../types';
+import { type VsCodeApi } from './types';
 import { generateId } from '../utils';
 import { DeferredPromise } from './types';
 import { TypedContexts } from './useWebviewApi';

@@ -1,7 +1,7 @@
 import type { HostCalls, RequestContext, ViewApiEvent } from '../types';
 import { generateId, getErrorMessage } from '../utils';
 import { getLogger } from './logger';
-import type { WebviewKey } from '../types/ipcReducer';
+import type { WebviewKey } from '../types/reducer';
 import type * as vscode from 'vscode';
 
 /**
