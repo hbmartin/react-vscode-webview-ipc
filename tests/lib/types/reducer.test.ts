@@ -221,9 +221,10 @@ describe('reducer types', () => {
         syncMethod: (arg: string) => `Sync: ${arg}`,
         asyncMethod: (num: number) => Promise.resolve(num * 2), // Must return Promise
         voidMethod: () => {},
-        complexMethod: (a: string, b: number, c?: boolean) => Promise.resolve({
-          result: `${a}-${b}-${c}`, // Must return Promise
-        }),
+        complexMethod: (a: string, b: number, c?: boolean) =>
+          Promise.resolve({
+            result: `${a}-${b}-${c}`, // Must return Promise
+          }),
       };
 
       // Sync implementation should still work

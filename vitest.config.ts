@@ -1,4 +1,4 @@
-import { resolve } from 'path';
+import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
@@ -12,7 +12,7 @@ export default defineConfig({
       exclude: ['node_modules/', 'tests/', '*.config.ts', 'src/**/*.stories.tsx'],
     },
     alias: {
-      vscode: resolve(__dirname, 'tests/setup/__mocks__/vscode.ts'),
+      vscode: path.join(import.meta.dirname || '.', 'tests/setup/__mocks__/vscode.ts'),
     },
   },
 });

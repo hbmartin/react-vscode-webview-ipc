@@ -44,7 +44,10 @@ describe('useVscodeState', () => {
       increment: (state, _patch) => ({ ...state, count: state.count + 1 }),
       decrement: (state, _patch) => ({ ...state, count: state.count - 1 }),
       setText: (state, patch) => ({ ...state, text: patch as unknown as string }),
-      multiplyBy: (state, patch) => ({ ...state, count: state.count * (patch as unknown as number) }),
+      multiplyBy: (state, patch) => ({
+        ...state,
+        count: state.count * (patch as unknown as number),
+      }),
     };
 
     // Mock window.addEventListener and removeEventListener
@@ -286,9 +289,7 @@ describe('useVscodeState', () => {
     });
 
     it('should throw error for unknown reducer key in patch', () => {
-      renderHook(() =>
-        useVscodeState(mockVscode, providerId, postReducer, initialState)
-      );
+      renderHook(() => useVscodeState(mockVscode, providerId, postReducer, initialState));
 
       const patchMessage = {
         type: PATCH,

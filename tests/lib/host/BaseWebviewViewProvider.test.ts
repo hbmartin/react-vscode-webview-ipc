@@ -24,9 +24,11 @@ class TestWebviewProvider extends BaseWebviewViewProvider<TestActions> {
     }
   );
 
-  public handleMessage = vi.fn(async (_message: unknown, _webview: vscode.Webview): Promise<void> => {
-    // Test implementation
-  });
+  public handleMessage = vi.fn(
+    async (_message: unknown, _webview: vscode.Webview): Promise<void> => {
+      // Test implementation
+    }
+  );
 
   // Expose protected methods for testing
   public testHandleLogMessage(message: any) {

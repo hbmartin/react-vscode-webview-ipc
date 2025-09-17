@@ -102,10 +102,10 @@ export const mockWebview = {
   asWebviewUri: vi.fn((uri: any) => ({
     scheme: 'webview',
     authority: '',
-    path: uri.path || '',
+    path: uri.path ?? '',
     query: '',
     fragment: '',
-    fsPath: uri.fsPath || '',
+    fsPath: uri.fsPath ?? '',
     with: vi.fn(),
     toString: vi.fn(() => `webview-${uri.toString ? uri.toString() : uri}`),
     toJSON: vi.fn(),
