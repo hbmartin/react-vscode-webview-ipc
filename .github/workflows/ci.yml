@@ -34,7 +34,7 @@ jobs:
         run: npx prettier --check "src/**/*.{ts,tsx,js,jsx,json,css,md}"
 
       - name: Run tests
-        run: npm test -- --run --passWithNoTests
+        run: npm test -- --run
 
       - name: Build library
         run: npm run build

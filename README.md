@@ -1,13 +1,18 @@
-# react-vscode-webview-ipc
+# React + VSCode Webview = IPC
+
+[![npm version](https://badge.fury.io/js/react-vscode-webview-ipc.svg)](https://www.npmjs.com/package/react-vscode-webview-ipc)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/hbmartin/react-vscode-webview-ipc)
+[![CI](https://github.com/hbmartin/react-vscode-webview-ipc/actions/workflows/ci.yml/badge.svg)](https://github.com/hbmartin/react-vscode-webview-ipc/actions/workflows/ci.yml)
+[![NPM License](https://img.shields.io/npm/l/react-vscode-webview-ipc?color=blue)](https://github.com/hbmartin/react-vscode-webview-ipc/blob/main/LICENSE.txt)
 
 A small library to make two-way communication between a VS Code extension host and a React webview simple and type‑safe.
 
 Two complementary paradigms are supported (you can use one or both):
+
 - UDF reducer IPC: Dispatch actions from the webview; the host computes a patch; the webview applies it via a reducer. (unidirectional dataflow)
 - RPC promises IPC: Call host functions from the webview and await typed results; the host can also push typed events to all connected webviews.
 
 This README explains how to implement both and shows how they can coexist.
-
 
 ## Install
 
@@ -21,7 +26,6 @@ npm i react-vscode-webview-ipc
   - `react-vscode-webview-ipc/host` for your extension host code
   - `react-vscode-webview-ipc/client` for your React webview code
 
-
 ## Concepts Overview
 
 - WebviewKey: a branded string identifying your view instance. Use a stable id (often your view type).
@@ -30,12 +34,12 @@ npm i react-vscode-webview-ipc
   - RPC IPC: `{ type: 'request' }` from webview → host; `{ type: 'response'|'error' }` from host → webview; `{ type: 'event' }` from host → webview broadcast.
 - Logging: webview logs are forwarded to the host’s Output channel.
 
-
 ## UDF Reducer IPC (Action → Patch → Reduce)
 
 Use this when your webview wants unidirectional state updates managed via a reducer.
 
 ### Types and Building Blocks
+
 - On the webview:
   - `useVscodeState<S, A>(vscode, providerId, postReducer, initialState)` returns `[state, actor]`.
     - `state: S` – your current state
@@ -51,6 +55,7 @@ Use this when your webview wants unidirectional state updates managed via a redu
 ### Minimal Example
 
 Host (extension):
+
 ```ts
 // src/extension/MyViewProvider.ts
 import * as vscode from 'vscode';
@@ -109,6 +114,7 @@ export class MyViewProvider extends BaseWebviewViewProvider<MyActions> {
 ```
 
 Register the provider in your extension activation:
+
 ```ts
 // src/extension/activate.ts
 import * as vscode from 'vscode';
@@ -117,17 +123,20 @@ import { MyViewProvider } from './MyViewProvider';
 export function activate(context: vscode.ExtensionContext) {
   const viewType = 'myExtension.myView' as unknown as WebviewKey; // brand to WebviewKey
   const provider = new MyViewProvider(viewType, context);
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(viewType, provider)
-  );
+  context.subscriptions.push(vscode.window.registerWebviewViewProvider(viewType, provider));
 }
 ```
 
 Webview (React):
+
 ```tsx
 // src/webview/App.tsx
 import { useMemo } from 'react';
-import { useVscodeState, type StateReducer, type WebviewKey } from 'react-vscode-webview-ipc/client';
+import {
+  useVscodeState,
+  type StateReducer,
+  type WebviewKey,
+} from 'react-vscode-webview-ipc/client';
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): Thenable<boolean>;
@@ -135,7 +144,10 @@ declare function acquireVsCodeApi(): {
   setState(state: unknown): void;
 };
 
-interface State { count: number; message: string }
+interface State {
+  count: number;
+  message: string;
+}
 interface MyActions {
   increment: (by: number) => number;
   setMessage: (msg: string) => { message: string };
@@ -165,6 +177,7 @@ export default function App() {
 ```
 
 ### UDF Flow (Sequence)
+
 ```mermaid
 sequenceDiagram
   participant W as Webview (React)
@@ -178,12 +191,12 @@ sequenceDiagram
   W->>W: postReducer[key](prev, patch) => newState
 ```
 
-
 ## RPC Promises IPC (Typed Requests/Responses + Events)
 
 Use this when your webview needs to call host functions and await results. The host can also broadcast typed events back to all connected webviews.
 
 ### Types and Building Blocks
+
 - On the webview:
   - Wrap your app in `<WebviewProvider viewType contextKey>`.
   - Use `createCtxKey<T>()` to create a unique key tying the context to your API type `T`.
@@ -198,6 +211,7 @@ Use this when your webview needs to call host functions and await results. The h
 ### Minimal Example
 
 Shared types:
+
 ```ts
 // Host receives these requests from the webview (must return promises)
 import type { ClientCalls } from 'react-vscode-webview-ipc/client';
@@ -215,6 +229,7 @@ export interface MyHostEvents extends HostCalls {
 ```
 
 Host (extension):
+
 ```ts
 import * as vscode from 'vscode';
 import {
@@ -253,7 +268,9 @@ export class MyRpcViewProvider extends BaseWebviewViewProvider<{}> {
             const [name] = message.params;
             const value = `Hello, ${name}!`;
             const response: ViewApiResponse<MyClientApi, 'fetchGreeting'> = {
-              type: 'response', id: message.id, value,
+              type: 'response',
+              id: message.id,
+              value,
             };
             await webview.postMessage(response);
             return;
@@ -262,19 +279,24 @@ export class MyRpcViewProvider extends BaseWebviewViewProvider<{}> {
             const [count] = message.params;
             // persist count...
             const response: ViewApiResponse<MyClientApi, 'saveCount'> = {
-              type: 'response', id: message.id,
+              type: 'response',
+              id: message.id,
             };
             await webview.postMessage(response);
             return;
           }
         }
         const error: ViewApiError = {
-          type: 'error', id: message.id, value: `Unknown method: ${String(message.key)}`,
+          type: 'error',
+          id: message.id,
+          value: `Unknown method: ${String(message.key)}`,
         };
         await webview.postMessage(error);
       } catch (e) {
         const error: ViewApiError = {
-          type: 'error', id: message.id, value: e instanceof Error ? e.message : String(e),
+          type: 'error',
+          id: message.id,
+          value: e instanceof Error ? e.message : String(e),
         };
         await webview.postMessage(error);
       }
@@ -287,6 +309,7 @@ export class MyRpcViewProvider extends BaseWebviewViewProvider<{}> {
 ```
 
 Webview (React):
+
 ```tsx
 import React, { useEffect } from 'react';
 import {
@@ -316,7 +339,7 @@ function Inner() {
     })();
   }, [api]);
 
-  return <div/>
+  return <div />;
 }
 
 export default function App() {
@@ -329,6 +352,7 @@ export default function App() {
 ```
 
 ### RPC Flow (Sequence)
+
 ```mermaid
 sequenceDiagram
   participant W as Webview (React)
@@ -347,7 +371,6 @@ sequenceDiagram
   VS-->>W: Invoke registered listeners for key
 ```
 
-
 ## Using Both Paradigms Together
 
 - They are designed to coexist. The webview can dispatch reducer actions for state, and call RPC methods for imperative operations.
@@ -356,19 +379,18 @@ sequenceDiagram
   - `WebviewProvider` listens for `{ type: 'response'|'error'|'event' }` messages and ignores messages with `providerId` present.
 - In your host provider, `resolveWebviewView` (from the base class) handles reducer `act/patch` automatically; implement `handleMessage` for RPC requests.
 
-
 ## Logging
 
 - Webview: `useLogger(tag, vscode)` returns a logger that posts to the host output channel.
 - Host: `getLogger(tag)` returns an Output channel logger; `BaseWebviewViewProvider` automatically routes webview log messages to it.
 
 Webview example:
+
 ```ts
 import { useLogger } from 'react-vscode-webview-ipc/client';
 const logger = useLogger('MyView', acquireVsCodeApi());
 logger.info('hello');
 ```
-
 
 ## Tips & Troubleshooting
 
@@ -378,22 +400,22 @@ logger.info('hello');
 - When posting RPC responses/errors from the host, always echo the same `id` you received.
 - If you use both paradigms, keep your reducer patches focused on state updates and use RPC for IO or long‑running tasks.
 
-
 ## API Surface (Quick Reference)
 
 Host exports (`react-vscode-webview-ipc/host`):
+
 - `BaseWebviewViewProvider<A>`
 - `WebviewApiProvider<T extends HostCalls>`
 - `isViewApiRequest(message)`
 - `Logger`, `getLogger`, `disallowedLogKeys`
 
 Client exports (`react-vscode-webview-ipc/client`):
+
 - `WebviewProvider<T extends ClientCalls>`
 - `useWebviewApi(ctxKey)` and `createCtxKey<T>()`
 - `useVscodeState<S, A>(vscode, providerId, postReducer, initial)`
 - `useLogger(tag, vscode)`
 - Types: `ClientCalls`, `HostCalls`, `CtxKey`, `WebviewKey`, `StateReducer`
-
 
 ## License
 
