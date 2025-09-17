@@ -70,7 +70,12 @@ jobs:
 
       - name: Build library
         run: npm run build
-
+      - name: Configure NPM for publishing
+        run: |
+          echo "//registry.npmjs.org/:_authToken=\${NODE_AUTH_TOKEN}" > ~/.npmrc
+          npm whoami || echo "Not authenticated yet"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish to NPM
         if: github.event_name == 'release'
         run: |
