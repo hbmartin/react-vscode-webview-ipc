@@ -6,8 +6,8 @@ export function isMyActionMessage<T extends object>(
 ): message is Action<T> {
   return (
     message !== null &&
-    message !== undefined &&
     typeof message === 'object' &&
+    !Array.isArray(message) &&
     'providerId' in message &&
     'type' in message &&
     'key' in message &&

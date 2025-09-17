@@ -54,6 +54,6 @@ export interface VsCodeApi {
   setState(state: unknown): void;
 }
 
-export type StateReducer<S, A> = {
+export type StateReducer<S, A extends object> = {
   [Key in FnKeys<A>]: (prevState: S, patch: Patches<A>[Key]) => S;
 };

@@ -22,8 +22,6 @@ export default defineConfig([
     'postcss.config.js',
     'tailwind.config.js',
     '.github/**',
-    'storybook-static',
-    '.storybook',
   ]),
   {
     files: ['**/*.{ts,tsx}'],
