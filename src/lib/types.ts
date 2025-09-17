@@ -3,7 +3,7 @@ export type Brand<T, B> = T & { readonly __brand: B };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type HostCalls = Record<string, (...args: any[]) => any>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type ClientCalls = Record<string | symbol, (...args: any[]) => PromiseLike<any>>;
+export type ClientCalls = Record<string, (...args: any[]) => PromiseLike<any>>;
 
 // eslint-disable-next-line code-complete/enforce-meaningful-names
 declare const __t: unique symbol;

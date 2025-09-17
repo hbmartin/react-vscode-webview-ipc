@@ -51,7 +51,7 @@ export const WebviewProvider = <T extends ClientCalls, H extends HostCalls>({
   const callApi = <K extends keyof T = keyof T>(
     key: K,
     ...params: Parameters<T[K]>
-  ): Promise<ReturnType<T[K]>> => {
+  ): ReturnType<T[K]> => {
     const id = generateId('req');
     const deferred = new DeferredPromise<Awaited<ReturnType<T[K]>>>(key as string);
 
@@ -76,7 +76,7 @@ export const WebviewProvider = <T extends ClientCalls, H extends HostCalls>({
       deferred.reject(error instanceof Error ? error : new Error(String(error)));
     }
 
-    return deferred.promise;
+    return deferred.promise as ReturnType<T[K]>;
   };
 
   /**
