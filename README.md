@@ -417,6 +417,14 @@ Client exports (`react-vscode-webview-ipc/client`):
 - `useLogger(tag, vscode)`
 - Types: `ClientCalls`, `HostCalls`, `CtxKey`, `WebviewKey`, `StateReducer`
 
-## License
+## References
 
-Apache-2.0
+- [vscode-messenger](https://github.com/TypeFox/vscode-messenger)
+- [Navigating the VS Code Extensions Structure](https://medium.com/@chajesse/from-learner-to-contributor-navigating-the-vs-code-extensions-structure-ed150f9897e5)
+- [How to Build a VS Code Extension using React Webviews](https://medium.com/snowflake/how-to-build-a-vs-code-extension-using-react-webviews-0e2481ce1ba2)
+- [How to Pass Data to A Webview Panel in VS Code Extension API](https://medium.com/@ashleyluu87/data-flow-from-vs-code-extension-webview-panel-react-components-2f94b881467e)
+
+## Legal
+
+- [Apache 2.0 License](LICENSE.txt)
+- Visual Studio Code, VS Code, and the Visual Studio Code icon are trademarks of Microsoft Corporation.
