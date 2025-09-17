@@ -2,6 +2,7 @@ import type { HostCalls, RequestContext, ViewApiEvent } from '../types';
 import { getLogger } from './logger';
 import type { WebviewKey } from '../types/ipcReducer';
 import type * as vscode from 'vscode';
+import { generateId, getErrorMessage } from '../utils';
 
 /**
  * WebviewApiProvider implements the type-safe API contract between host and webviews.
@@ -13,7 +14,7 @@ interface ConnectedView {
 }
 
 export class WebviewApiProvider implements vscode.Disposable {
-  private readonly connectedViews = new Map<string, ConnectedView>();
+  private readonly connectedViews = new Map<WebviewKey, ConnectedView>();
   private readonly disposables: vscode.Disposable[] = [];
   private readonly logger = getLogger('WebviewApiProvider');
 
@@ -34,7 +35,8 @@ export class WebviewApiProvider implements vscode.Disposable {
     const failedViews: string[] = [];
 
     // Send to all connected views
-    this.connectedViews.forEach((connectedView, viewId) => {
+    for (const [viewId, connectedView] of this.connectedViews.entries()) {
+      // eslint-disable-next-line sonarjs/no-try-promise
       try {
         // Wrap postMessage in try-catch to handle synchronous exceptions
         const postPromise = connectedView.view.webview.postMessage(event);
@@ -44,9 +46,9 @@ export class WebviewApiProvider implements vscode.Disposable {
           () => {
             // Message sent successfully
           },
-          (err: Error) => {
+          (error: unknown) => {
             this.logger.error(
-              `Failed to send event ${key} to view ${connectedView.context.viewType}:${viewId}: ${String(err)}`
+              `Failed to send event ${key} to view ${connectedView.context.viewType}:${viewId}: ${getErrorMessage(error)}`
             );
 
             // Mark view for removal
@@ -62,11 +64,11 @@ export class WebviewApiProvider implements vscode.Disposable {
         // Mark view for removal
         failedViews.push(viewId);
       }
-    });
+    }
 
     // Prune failed views after iteration to avoid modifying collection during iteration
     if (failedViews.length > 0) {
-      failedViews.forEach((viewId) => {
+      for (const viewId of failedViews) {
         const connectedView = this.connectedViews.get(viewId);
         if (connectedView) {
           this.logger.warn(
@@ -76,9 +78,10 @@ export class WebviewApiProvider implements vscode.Disposable {
           // Only remove from connected views - let webviews handle their own disposal lifecycle
           this.connectedViews.delete(viewId);
         }
-      });
+      }
 
       this.logger.info(
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         `Removed ${failedViews.length} failed webview(s) from connectedViews. Remaining: ${this.connectedViews.size}`
       );
     }
@@ -87,21 +90,26 @@ export class WebviewApiProvider implements vscode.Disposable {
   /**
    * Register a webview with this API provider
    */
-  registerView(id: WebviewKey, view: vscode.WebviewView, viewType: string = 'unknown'): void {
+  registerView(id: WebviewKey, view: vscode.WebviewView): void {
+    if (this.connectedViews.has(id) && view === this.connectedViews.get(id)?.view) {
+      this.logger.error(`Webview ${id} already registered`);
+      return;
+    }
+
     const context: RequestContext = {
       viewId: id,
-      viewType: viewType,
+      viewType: view.viewType,
       timestamp: Date.now(),
-      sessionId: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      sessionId: generateId('session'),
     };
 
     this.connectedViews.set(id, { view, context });
-    this.logger.info(`Registered webview: ${viewType}:${id}`);
+    this.logger.info(`Registered webview: ${view.viewType}:${id}`);
 
     // Clean up on dispose
     view.onDidDispose(() => {
       this.connectedViews.delete(id);
-      this.logger.info(`Unregistered webview: ${viewType}:${id}`);
+      this.logger.info(`Unregistered webview: ${view.viewType}:${id}`);
     });
   }
 
@@ -116,7 +124,9 @@ export class WebviewApiProvider implements vscode.Disposable {
    * Dispose of all resources
    */
   dispose(): void {
-    this.disposables.forEach((d) => d.dispose());
+    for (const disposable of this.disposables) {
+      disposable.dispose();
+    }
     this.connectedViews.clear();
     this.logger.info('WebviewApiProvider disposed');
   }

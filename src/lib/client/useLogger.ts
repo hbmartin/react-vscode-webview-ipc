@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { useContext, useMemo } from 'react';
 import { WebviewLogger } from '../host/WebviewLogger';
 import { WebviewContext } from './WebviewContext';
@@ -21,10 +22,14 @@ export function useLogger(tag: string): ILogger {
 
 function createConsoleLogger(tag: string): ILogger {
   return {
-    debug: (message: string, data?: Record<any, any>) => console.debug(`[${tag}] ${message}`, data),
-    info: (message: string, data?: Record<any, any>) => console.info(`[${tag}] ${message}`, data),
-    warn: (message: string, data?: Record<any, any>) => console.warn(`[${tag}] ${message}`, data),
-    error: (message: string, data?: Record<any, any>) => console.error(`[${tag}] ${message}`, data),
+    debug: (message: string, data?: Record<string, unknown>) =>
+      console.debug(`[${tag}] ${message}`, data),
+    info: (message: string, data?: Record<string, unknown>) =>
+      console.info(`[${tag}] ${message}`, data),
+    warn: (message: string, data?: Record<string, unknown>) =>
+      console.warn(`[${tag}] ${message}`, data),
+    error: (message: string, data?: Record<string, unknown>) =>
+      console.error(`[${tag}] ${message}`, data),
     dispose: () => {},
   };
 }

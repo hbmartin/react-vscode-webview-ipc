@@ -46,7 +46,6 @@ export default defineConfig([
       react: reactPlugin,
     },
     languageOptions: {
-      // eslint-disable-next-line code-complete/no-magic-numbers-except-zero-one
       ecmaVersion: 2023,
       sourceType: 'module',
       globals: {
@@ -55,7 +54,7 @@ export default defineConfig([
         React: 'readonly',
       },
       parserOptions: {
-        project: ['./tsconfig.app.json', './tsconfig.node.json', './tsconfig.storybook.json'],
+        projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -127,6 +126,7 @@ export default defineConfig([
       'unicorn/no-keyword-prefix': 'off',
       'unicorn/no-useless-undefined': 'off',
       'unicorn/no-array-reduce': 'off',
+      'unicorn/require-post-message-target-origin': 'off',
 
       'sonarjs/void-use': 'off',
       'sonarjs/todo-tag': 'off',

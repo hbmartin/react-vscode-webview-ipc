@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { ViewApiRequest, WebviewContext } from '../types';
+import type { WebviewContextData } from '../types';
 import {
   isMyActionMessage,
   PATCH,
@@ -9,16 +9,17 @@ import {
   type Patches,
   type WebviewKey,
 } from '../types/ipcReducer';
-import { getLogger, Logger } from './logger';
-import type { WebviewApiProvider } from './WebviewApiProvider';
-import { isLogMessage } from './WebviewLogger';
 import { LogLevel } from './ILogger';
+import { getLogger } from './logger';
+import { isLogMessage, type LogMessage } from './WebviewLogger';
+import type { WebviewApiProvider } from './WebviewApiProvider';
 
 export abstract class BaseWebviewViewProvider<A extends object>
   implements vscode.WebviewViewProvider
 {
   protected _view?: vscode.WebviewView;
   protected readonly logger;
+  private webviewDisposable: vscode.Disposable | undefined;
   protected abstract readonly webviewActionDelegate: ActionDelegate<A>;
   constructor(
     private readonly providerId: WebviewKey,
@@ -44,40 +45,26 @@ export abstract class BaseWebviewViewProvider<A extends object>
       ],
     };
 
-    const webviewContext: WebviewContext = {
+    const webviewContext: WebviewContextData = {
       layout: 'sidebar',
       extensionUri: this.extensionUri.toString(),
     };
 
-    const html = this.generateWebviewHtml(webviewView.webview, this.extensionUri, webviewContext);
+    webviewView.webview.html = this.generateWebviewHtml(
+      webviewView.webview,
+      this.extensionUri,
+      webviewContext
+    );
 
-    webviewView.webview.html = html;
-
-    this.apiProvider.registerView(this.providerId, webviewView, this.providerId);
+    this.apiProvider.registerView(this.providerId, webviewView);
 
     const messageListener = webviewView.webview.onDidReceiveMessage(async (message) => {
       if (isLogMessage(message)) {
-        switch (message.level) {
-          case LogLevel.DEBUG: {
-            Logger.debug(message.message, message.data);
-            break;
-          }
-          case LogLevel.INFO: {
-            Logger.info(message.message, message.data);
-            break;
-          }
-          case LogLevel.WARN: {
-            Logger.warn(message.message, message.data);
-            break;
-          }
-          case LogLevel.ERROR: {
-            Logger.error(message.message, message.data);
-            break;
-          }
-        }
+        this.handleLogMessage(message);
+        return;
       }
       if (isMyActionMessage<A>(message, this.providerId)) {
-        this.logger.debug('Received action message from webview', message);
+        this.logger.debug('Received action message from webview', { message });
 
         const delegateFn = this.webviewActionDelegate[message.key];
         if (typeof delegateFn !== 'function') {
@@ -99,9 +86,10 @@ export abstract class BaseWebviewViewProvider<A extends object>
     });
 
     // Dispose of the message listener when webview is disposed
-    webviewView.onDidDispose(() => {
+    this.webviewDisposable = webviewView.onDidDispose(() => {
       messageListener.dispose();
       this.onWebviewDispose();
+      this.webviewDisposable?.dispose();
     });
   }
 
@@ -123,11 +111,32 @@ export abstract class BaseWebviewViewProvider<A extends object>
     // Subclasses can override to clean up resources
   }
 
+  protected handleLogMessage(message: LogMessage): void {
+    switch (message.level) {
+      case LogLevel.DEBUG: {
+        this.logger.debug(message.message, message.data);
+        break;
+      }
+      case LogLevel.INFO: {
+        this.logger.info(message.message, message.data);
+        break;
+      }
+      case LogLevel.WARN: {
+        this.logger.warn(message.message, message.data);
+        break;
+      }
+      case LogLevel.ERROR: {
+        this.logger.error(message.message, message.data);
+        break;
+      }
+    }
+  }
+
   protected abstract generateWebviewHtml(
     webview: vscode.Webview,
     extensionUri: vscode.Uri,
-    context: WebviewContext
+    context: WebviewContextData
   ): string;
 
-  protected abstract handleMessage(message: ViewApiRequest, webview: vscode.Webview): Promise<void>;
+  protected abstract handleMessage(message: unknown, webview: vscode.Webview): Promise<void>;
 }
