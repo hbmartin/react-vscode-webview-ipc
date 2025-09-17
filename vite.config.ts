@@ -24,7 +24,7 @@ export default defineConfig({
       },
     },
     rollupOptions: {
-      external: ['react', 'react-dom', 'react/jsx-runtime'],
+      external: ['react', 'react-dom', 'react/jsx-runtime', 'vscode'],
       output: {
         preserveModules: false,
         exports: 'named',

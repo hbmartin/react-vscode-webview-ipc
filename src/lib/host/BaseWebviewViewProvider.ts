@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { WebviewContextData } from '../types';
+import type { HostCalls } from '../types';
 import {
   isMyActionMessage,
   PATCH,
@@ -19,12 +19,11 @@ export abstract class BaseWebviewViewProvider<A extends object>
 {
   protected _view?: vscode.WebviewView;
   protected readonly logger;
-  private webviewDisposable: vscode.Disposable | undefined;
   protected abstract readonly webviewActionDelegate: ActionDelegate<A>;
   constructor(
     private readonly providerId: WebviewKey,
     private readonly extensionUri: vscode.Uri,
-    private readonly apiProvider: WebviewApiProvider
+    private readonly apiProvider?: WebviewApiProvider<HostCalls>
   ) {
     this.logger = getLogger(providerId.split('.')[1]);
   }
@@ -45,18 +44,9 @@ export abstract class BaseWebviewViewProvider<A extends object>
       ],
     };
 
-    const webviewContext: WebviewContextData = {
-      layout: 'sidebar',
-      extensionUri: this.extensionUri.toString(),
-    };
+    webviewView.webview.html = this.generateWebviewHtml(webviewView.webview, this.extensionUri);
 
-    webviewView.webview.html = this.generateWebviewHtml(
-      webviewView.webview,
-      this.extensionUri,
-      webviewContext
-    );
-
-    this.apiProvider.registerView(this.providerId, webviewView);
+    this.apiProvider?.registerView(this.providerId, webviewView);
 
     const messageListener = webviewView.webview.onDidReceiveMessage(async (message) => {
       if (isLogMessage(message)) {
@@ -86,10 +76,9 @@ export abstract class BaseWebviewViewProvider<A extends object>
     });
 
     // Dispose of the message listener when webview is disposed
-    this.webviewDisposable = webviewView.onDidDispose(() => {
+    webviewView.onDidDispose(() => {
       messageListener.dispose();
       this.onWebviewDispose();
-      this.webviewDisposable?.dispose();
     });
   }
 
@@ -132,11 +121,7 @@ export abstract class BaseWebviewViewProvider<A extends object>
     }
   }
 
-  protected abstract generateWebviewHtml(
-    webview: vscode.Webview,
-    extensionUri: vscode.Uri,
-    context: WebviewContextData
-  ): string;
+  protected abstract generateWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string;
 
   protected abstract handleMessage(message: unknown, webview: vscode.Webview): Promise<void>;
 }

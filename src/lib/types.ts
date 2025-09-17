@@ -1,7 +1,17 @@
 export type Brand<T, B> = T & { readonly __brand: B };
 
-export type HostCalls = Record<string, (...args: unknown[]) => unknown>;
-export type ClientCalls = Record<string, (...args: unknown[]) => Promise<unknown>>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type HostCalls = Record<string, (...args: any[]) => any>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ClientCalls = Record<string | symbol, (...args: any[]) => PromiseLike<any>>;
+
+// eslint-disable-next-line code-complete/enforce-meaningful-names
+declare const __t: unique symbol;
+export interface CtxKey<T extends ClientCalls> {
+  readonly id: symbol; // runtime identity
+  /** phantom type: ties this key to T at compile time */
+  readonly [__t]?: T;
+}
 
 /**
  * Request context information for tracking and debugging
@@ -16,18 +26,18 @@ export interface RequestContext {
 /**
  * Internal message types for request/response communication
  */
-export interface ViewApiRequest<K extends keyof ClientCalls = keyof ClientCalls> {
+export interface ViewApiRequest<T extends ClientCalls, K extends keyof T = keyof T> {
   type: 'request';
   id: string;
   key: K;
-  params: Parameters<ClientCalls[K]>;
+  params: Parameters<T[K]>;
   context?: RequestContext;
 }
 
-export interface ViewApiResponse<K extends keyof ClientCalls = keyof ClientCalls> {
+export interface ViewApiResponse<T extends ClientCalls, K extends keyof T = keyof T> {
   type: 'response';
   id: string;
-  value?: Awaited<ReturnType<ClientCalls[K]>>;
+  value?: Awaited<ReturnType<T[K]>>;
 }
 
 export interface ViewApiError {
@@ -36,18 +46,18 @@ export interface ViewApiError {
   value: string;
 }
 
-export interface ViewApiEvent<E extends keyof HostCalls = keyof HostCalls> {
+export interface ViewApiEvent<T extends HostCalls, E extends keyof T = keyof T> {
   type: 'event';
   key: E;
-  value: Parameters<HostCalls[E]>;
+  value: Parameters<T[E]>;
 }
-
-export type ViewApiMessage = ViewApiRequest | ViewApiResponse | ViewApiError | ViewApiEvent;
 
 /**
  * Type guard to check if a message is a valid API request
  */
-export function isViewApiRequest(message: unknown): message is ViewApiRequest {
+export function isViewApiRequest<T extends ClientCalls, K extends keyof T = keyof T>(
+  message: unknown
+): message is ViewApiRequest<T, K> {
   return (
     message !== null &&
     message !== undefined &&
@@ -60,8 +70,8 @@ export function isViewApiRequest(message: unknown): message is ViewApiRequest {
     typeof message.key === 'string' &&
     'params' in message &&
     Array.isArray(message.params) &&
-    'context' in message &&
-    (message.context === undefined ||
+    (!('context' in message) ||
+      message.context === undefined ||
       (typeof message.context === 'object' &&
         message.context !== null &&
         'viewId' in message.context &&
@@ -76,7 +86,9 @@ export function isViewApiRequest(message: unknown): message is ViewApiRequest {
 /**
  * Type guard to check if a message is a valid API response
  */
-export function isViewApiResponse(message: unknown): message is ViewApiResponse {
+export function isViewApiResponse<T extends ClientCalls, K extends keyof T = keyof T>(
+  message: unknown
+): message is ViewApiResponse<T, K> {
   return (
     message !== null &&
     message !== undefined &&
@@ -108,7 +120,9 @@ export function isViewApiError(message: unknown): message is ViewApiError {
 /**
  * Type guard to check if a message is a valid API event
  */
-export function isViewApiEvent(message: unknown): message is ViewApiEvent {
+export function isViewApiEvent<T extends HostCalls, E extends keyof T = keyof T>(
+  message: unknown
+): message is ViewApiEvent<T, E> {
   return (
     message !== null &&
     message !== undefined &&
@@ -123,18 +137,6 @@ export function isViewApiEvent(message: unknown): message is ViewApiEvent {
 }
 
 export type WebviewLayout = 'sidebar' | 'panel';
-
-export interface WebviewContextData {
-  layout: WebviewLayout;
-  extensionUri: string;
-  logoUris?: {
-    cursor: string;
-    windsurf: string;
-    claudeCode: string;
-    lovable: string;
-    bolt: string;
-  };
-}
 
 // VS Code webview API
 export interface VsCodeApi {

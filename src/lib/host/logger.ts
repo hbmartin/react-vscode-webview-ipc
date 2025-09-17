@@ -27,14 +27,13 @@ function removePromptsFromData<T>(dictionary: T | undefined | null): T | undefin
       if (Array.isArray(value)) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         clone[key] = value.map((item) => removePromptsFromData(item)) as unknown;
-        // eslint-disable-next-line sonarjs/different-types-comparison
       } else if (typeof value === 'object' && value !== null) {
         clone[key] = removePromptsFromData(value as Record<string, unknown>) as unknown;
       }
     }
   } catch (error) {
     console.error('Error processing log data:', error);
-    return clone as unknown as T;
+    return {} as T;
   }
 
   return clone as unknown as T;

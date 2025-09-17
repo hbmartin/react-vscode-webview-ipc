@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
-import { useContext, useMemo } from 'react';
+import { useMemo } from 'react';
+import type { VsCodeApi } from '../types';
 import { WebviewLogger } from '../host/WebviewLogger';
-import { WebviewContext } from './WebviewContext';
 import type { ILogger } from '../host/ILogger';
 
 /**
@@ -9,14 +9,10 @@ import type { ILogger } from '../host/ILogger';
  * The logger automatically sends all log messages to the extension host
  * where they are written to the VS Code output channel.
  */
-export function useLogger(tag: string): ILogger {
-  const context = useContext(WebviewContext);
+export function useLogger(tag: string, vscode?: VsCodeApi): ILogger {
   return useMemo(
-    () =>
-      context?.vscode === undefined
-        ? createConsoleLogger(tag)
-        : new WebviewLogger(context.vscode, tag),
-    [context?.vscode, tag]
+    () => (vscode === undefined ? createConsoleLogger(tag) : new WebviewLogger(vscode, tag)),
+    [vscode, tag]
   );
 }
 

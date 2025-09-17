@@ -1,5 +1,3 @@
-import type { ClientCalls, HostCalls, VsCodeApi } from '../types';
-
 /**
  * Deferred promise for handling async responses with timeout management
  */

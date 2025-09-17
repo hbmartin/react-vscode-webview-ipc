@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { VsCodeApi } from '../types';
 import {
   ACT,
   type Patch,
@@ -8,28 +9,28 @@ import {
   type StateReducer,
   isFnKey,
 } from '../types/ipcReducer';
-import { useWebviewApi } from './WebviewContext';
 
 type PostAction<A extends object> = Pick<Action<A>, 'key' | 'params'>;
 
-function isMyPatchMessage<A extends object>(msg: any, id: WebviewKey): msg is Patch<A> {
+function isMyPatchMessage<A extends object>(message: unknown, id: WebviewKey): message is Patch<A> {
   return (
-    msg !== null &&
-    msg !== undefined &&
-    typeof msg === 'object' &&
-    'providerId' in msg &&
-    'type' in msg &&
-    'key' in msg &&
-    'patch' in msg &&
-    msg.type === PATCH &&
-    typeof msg.providerId === 'string' &&
-    msg.providerId === id
+    message !== null &&
+    message !== undefined &&
+    typeof message === 'object' &&
+    'providerId' in message &&
+    'type' in message &&
+    'key' in message &&
+    'patch' in message &&
+    message.type === PATCH &&
+    typeof message.providerId === 'string' &&
+    message.providerId === id
   );
 }
 
 const dangerousKeys = new Set(['__proto__', 'constructor', 'prototype']);
 
 export function useVscodeState<S, A extends object>(
+  vscode: VsCodeApi,
   providerId: WebviewKey,
   postReducer: StateReducer<S, A>,
   initialState: S | (() => S)
@@ -37,14 +38,13 @@ export function useVscodeState<S, A extends object>(
   const [state, setState] = useState<S>(
     typeof initialState === 'function' ? (initialState as () => S)() : initialState
   );
-  const { vscode } = useWebviewApi();
   const validKeys = useMemo(
     () => new Set(Object.keys(postReducer).filter((k) => !dangerousKeys.has(k))),
     [postReducer]
   );
 
   useEffect(() => {
-    const handler = (event: MessageEvent) => {
+    const handler = (event: MessageEvent<unknown>) => {
       const { data } = event;
       if (isMyPatchMessage<A>(data, providerId)) {
         if (
@@ -83,6 +83,7 @@ export function useVscodeState<S, A extends object>(
   );
 
   const actor = new Proxy({} as A, {
+    // eslint-disable-next-line code-complete/enforce-meaningful-names
     get(_, prop) {
       if (typeof prop !== 'string' && typeof prop !== 'symbol') {
         throw new TypeError(`Invalid action type: ${String(prop)}`);
@@ -94,6 +95,7 @@ export function useVscodeState<S, A extends object>(
         throw new Error(`Unknown or invalid action: ${String(prop)}`);
       }
       return (...args: unknown[]) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const params = args as A[typeof prop] extends (...args: unknown[]) => any
           ? Parameters<A[typeof prop]>
           : never;
