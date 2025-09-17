@@ -1,5 +1,6 @@
 import { useContext, type Context } from 'react';
-import type { ClientCalls, CtxKey, WebviewContextValue } from '..';
+import type { ClientCalls, CtxKey } from '../types';
+import type { WebviewContextValue } from './WebviewContext';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const TypedContexts = new WeakMap<CtxKey<any>, Context<any>>();
@@ -20,5 +21,5 @@ export const useWebviewApi = <T extends ClientCalls>(
 };
 
 export function createCtxKey<T extends ClientCalls>(contextKey: string): CtxKey<T> {
-  return { id: Symbol(contextKey) } as CtxKey<T>;
+  return Object.freeze({ id: Symbol(contextKey) }) as CtxKey<T>;
 }

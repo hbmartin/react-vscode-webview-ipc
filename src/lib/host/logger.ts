@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
-import { disallowedLogKeys } from '..';
 import { LogLevel, type ILogger } from './ILogger';
+
+export const disallowedLogKeys = ['password', 'secret', 'token', 'apiKey', 'apiSecret', 'content'];
 
 function removePromptsFromData<T>(dictionary: T | undefined | null): T | undefined {
   if (dictionary === null || dictionary === undefined) {

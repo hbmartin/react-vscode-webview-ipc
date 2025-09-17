@@ -9,7 +9,7 @@ import {
   type Patches,
   type WebviewKey,
 } from '../types/ipcReducer';
-import { LogLevel } from './ILogger';
+import { LogLevel, type ILogger } from './ILogger';
 import { getLogger } from './logger';
 import { isLogMessage, type LogMessage } from './WebviewLogger';
 import type { WebviewApiProvider } from './WebviewApiProvider';
@@ -18,14 +18,14 @@ export abstract class BaseWebviewViewProvider<A extends object>
   implements vscode.WebviewViewProvider
 {
   protected _view?: vscode.WebviewView;
-  protected readonly logger;
+  protected readonly logger: ILogger;
   protected abstract readonly webviewActionDelegate: ActionDelegate<A>;
   constructor(
     private readonly providerId: WebviewKey,
     private readonly extensionUri: vscode.Uri,
     private readonly apiProvider?: WebviewApiProvider<HostCalls>
   ) {
-    this.logger = getLogger(providerId.split('.')[1]);
+    this.logger = getLogger(providerId.split('.')[1] ?? providerId);
   }
 
   public resolveWebviewView(

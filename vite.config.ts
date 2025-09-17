@@ -15,13 +15,13 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/lib/index.ts'),
+      entry: {
+        index: resolve(__dirname, 'src/lib/index.ts'),
+        host: resolve(__dirname, 'src/lib/host.ts'),
+        client: resolve(__dirname, 'src/lib/client.ts'),
+      },
       formats: ['es', 'cjs'],
       name: 'ReactVSCodeWebviewIPC',
-      fileName: (format) => {
-        const extension = format === 'es' ? 'js' : 'cjs';
-        return `index.${extension}`;
-      },
     },
     rollupOptions: {
       external: ['react', 'react-dom', 'react/jsx-runtime', 'vscode'],
