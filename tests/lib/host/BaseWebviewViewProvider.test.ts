@@ -3,6 +3,7 @@ import { BaseWebviewViewProvider } from '../../../src/lib/host/BaseWebviewViewPr
 import { type ActionDelegate, type WebviewKey, PATCH } from '../../../src/lib/types/reducer';
 import { LogLevel } from '../../../src/lib/types';
 import type { WebviewApiProvider } from '../../../src/lib/host/WebviewApiProvider';
+import type * as vscode from 'vscode';
 
 // Test actions interface
 interface TestActions {
@@ -14,16 +15,16 @@ interface TestActions {
 class TestWebviewProvider extends BaseWebviewViewProvider<TestActions> {
   protected webviewActionDelegate: ActionDelegate<TestActions> = {
     fetchData: vi.fn(async (id: string) => ({ data: `Data for ${id}` })),
-    updateSettings: vi.fn((settings: any) => undefined),
+    updateSettings: vi.fn((_settings: any) => undefined),
   };
 
   public generateWebviewHtml = vi.fn(
-    (webview: vscode.Webview, extensionUri: vscode.Uri): string => {
+    (_webview: vscode.Webview, _extensionUri: vscode.Uri): string => {
       return '<html><body>Test</body></html>';
     }
   );
 
-  public handleMessage = vi.fn(async (message: unknown, webview: vscode.Webview): Promise<void> => {
+  public handleMessage = vi.fn(async (_message: unknown, _webview: vscode.Webview): Promise<void> => {
     // Test implementation
   });
 

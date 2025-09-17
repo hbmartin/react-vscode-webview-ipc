@@ -234,9 +234,9 @@ describe('client types', () => {
     }
 
     interface TestActions {
-      increment: (amount: number) => void;
-      setName: (name: string) => void;
-      reset: () => void;
+      increment: (amount: number) => Promise<number>;
+      setName: (name: string) => Promise<string>;
+      reset: () => Promise<void>;
     }
 
     it('should type state reducer correctly', () => {
@@ -249,7 +249,7 @@ describe('client types', () => {
           ...prevState,
           name,
         }),
-        reset: () => ({
+        reset: (_prevState) => ({
           count: 0,
           name: '',
         }),
@@ -268,7 +268,7 @@ describe('client types', () => {
       expect(namedState.name).toBe('new name');
 
       // Test reset
-      const resetState = reducer.reset(initialState);
+      const resetState = reducer.reset(initialState, undefined);
       expect(resetState.count).toBe(0);
       expect(resetState.name).toBe('');
     });
@@ -283,7 +283,7 @@ describe('client types', () => {
           ...prevState,
           name,
         }),
-        reset: () => ({
+        reset: (_prevState) => ({
           count: 0,
           name: '',
         }),

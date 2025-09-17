@@ -21,6 +21,14 @@ export const Uri = {
   joinPath: vi.fn((base: any, ...paths: string[]) => ({
     ...base,
     path: `${base.path}/${paths.join('/')}`,
+    scheme: 'file',
+    authority: '',
+    query: '',
+    fragment: '',
+    fsPath: `${base.path}/${paths.join('/')}`,
+    with: vi.fn(),
+    toString: vi.fn(() => `file://${base.path}/${paths.join('/')}`),
+    toJSON: vi.fn(),
   })),
   file: vi.fn((path: string) => ({
     scheme: 'file',

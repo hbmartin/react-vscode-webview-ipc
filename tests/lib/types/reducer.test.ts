@@ -219,18 +219,18 @@ describe('reducer types', () => {
     it('should allow sync implementation of async interface methods', async () => {
       const delegate: ActionDelegate<TestActions> = {
         syncMethod: (arg: string) => `Sync: ${arg}`,
-        asyncMethod: (num: number) => num * 2, // Sync implementation
+        asyncMethod: (num: number) => Promise.resolve(num * 2), // Must return Promise
         voidMethod: () => {},
-        complexMethod: (a: string, b: number, c?: boolean) => ({
-          result: `${a}-${b}-${c}`, // Sync implementation
+        complexMethod: (a: string, b: number, c?: boolean) => Promise.resolve({
+          result: `${a}-${b}-${c}`, // Must return Promise
         }),
       };
 
       // Sync implementation should still work
-      const result = delegate.asyncMethod(21);
+      const result = await delegate.asyncMethod(21);
       expect(result).toBe(42);
 
-      const complexResult = delegate.complexMethod('a', 1);
+      const complexResult = await delegate.complexMethod('a', 1);
       expect(complexResult).toEqual({ result: 'a-1-undefined' });
     });
   });
@@ -276,11 +276,11 @@ describe('reducer types', () => {
 
   describe('IpcMessage interface behavior', () => {
     it('should enforce readonly properties', () => {
-      const action: Action<TestActions> = {
+      const action: Action<TestActions, 'syncMethod'> = {
         type: ACT,
         providerId: 'test' as WebviewKey,
         key: 'syncMethod',
-        params: ['arg'],
+        params: ['arg'] as const,
       };
 
       // Properties should be readonly

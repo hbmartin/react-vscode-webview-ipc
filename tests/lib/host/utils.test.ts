@@ -13,22 +13,22 @@ describe('host/utils', () => {
     const differentProviderId = 'different-provider' as WebviewKey;
 
     it('should return true for valid action message with matching provider ID', () => {
-      const validAction: Action<TestActions> = {
+      const validAction: Action<TestActions, 'testMethod'> = {
         type: ACT,
         providerId: validProviderId,
         key: 'testMethod',
-        params: ['test-arg'],
+        params: ['test-arg'] as const,
       };
 
       expect(isMyActionMessage<TestActions>(validAction, validProviderId)).toBe(true);
     });
 
     it('should return false for valid action with different provider ID', () => {
-      const action: Action<TestActions> = {
+      const action: Action<TestActions, 'testMethod'> = {
         type: ACT,
         providerId: differentProviderId,
         key: 'testMethod',
-        params: ['test-arg'],
+        params: ['test-arg'] as const,
       };
 
       expect(isMyActionMessage<TestActions>(action, validProviderId)).toBe(false);

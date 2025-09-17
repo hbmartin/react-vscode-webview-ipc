@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { ClientCalls } from '../../src/lib/types';
 
 describe('client module exports', () => {
   it('should export WebviewProvider', async () => {
@@ -46,7 +47,10 @@ describe('client module exports', () => {
     it('should have working createCtxKey function', async () => {
       const { createCtxKey } = await import('../../src/lib/client');
 
-      const key = createCtxKey<string>('test');
+      interface TestCalls extends ClientCalls {
+        test: () => Promise<void>;
+      }
+      const key = createCtxKey<TestCalls>('test');
       expect(key).toBeDefined();
       expect(typeof key).toBe('object');
       expect(key.id).toBeDefined();

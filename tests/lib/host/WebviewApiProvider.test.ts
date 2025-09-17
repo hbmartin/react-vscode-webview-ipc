@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { WebviewApiProvider } from '../../../src/lib/host/WebviewApiProvider';
 import type { HostCalls } from '../../../src/lib/types';
+import type { WebviewKey } from '../../../src/lib/types/reducer';
 import { mockWebviewView } from '../../setup/test-utils';
+
+// Helper to create WebviewKey
+function createWebviewKey(id: string): WebviewKey {
+  return id as WebviewKey;
+}
 
 // Test interface for host calls
 interface TestHostCalls extends HostCalls {
@@ -32,7 +38,7 @@ describe('WebviewApiProvider', () => {
 
   describe('registerView', () => {
     it('should register a webview successfully', () => {
-      const viewId = 'test-view-1';
+      const viewId = createWebviewKey('test-view-1');
 
       provider.registerView(viewId, mockWebviewView);
 
@@ -40,7 +46,7 @@ describe('WebviewApiProvider', () => {
     });
 
     it('should not register the same view twice', () => {
-      const viewId = 'test-view-1';
+      const viewId = createWebviewKey('test-view-1');
 
       provider.registerView(viewId, mockWebviewView);
       provider.registerView(viewId, mockWebviewView);
@@ -52,14 +58,14 @@ describe('WebviewApiProvider', () => {
       const view1 = { ...mockWebviewView, viewType: 'view1' };
       const view2 = { ...mockWebviewView, viewType: 'view2' };
 
-      provider.registerView('view-1', view1);
-      provider.registerView('view-2', view2);
+      provider.registerView(createWebviewKey('view-1'), view1);
+      provider.registerView(createWebviewKey('view-2'), view2);
 
       expect(provider.getConnectedViewCount()).toBe(2);
     });
 
     it('should handle view disposal', () => {
-      const viewId = 'test-view-1';
+      const viewId = createWebviewKey('test-view-1');
       const disposableView = {
         ...mockWebviewView,
         onDidDispose: vi.fn((callback: () => void) => {
@@ -78,7 +84,7 @@ describe('WebviewApiProvider', () => {
 
   describe('triggerEvent', () => {
     beforeEach(() => {
-      provider.registerView('test-view', mockWebviewView);
+      provider.registerView(createWebviewKey('test-view'), mockWebviewView);
     });
 
     it('should send event to registered view', () => {
@@ -125,7 +131,7 @@ describe('WebviewApiProvider', () => {
           postMessage: vi.fn().mockResolvedValue(true),
         },
       };
-      provider.registerView('test-view-2', view2);
+      provider.registerView(createWebviewKey('test-view-2'), view2);
 
       provider.triggerEvent('onDataUpdate', { data: 'test' });
 
@@ -143,7 +149,7 @@ describe('WebviewApiProvider', () => {
         },
       };
 
-      provider.registerView('failing-view', failingView);
+      provider.registerView(createWebviewKey('failing-view'), failingView);
       expect(provider.getConnectedViewCount()).toBe(2); // Both views registered
 
       provider.triggerEvent('onDataUpdate', { data: 'test' });
@@ -172,7 +178,7 @@ describe('WebviewApiProvider', () => {
         },
       };
 
-      provider.registerView('throwing-view', throwingView);
+      provider.registerView(createWebviewKey('throwing-view'), throwingView);
 
       expect(() => {
         provider.triggerEvent('onDataUpdate', { data: 'test' });
@@ -206,11 +212,11 @@ describe('WebviewApiProvider', () => {
     });
 
     it('should return correct count when views are registered', () => {
-      provider.registerView('view-1', mockWebviewView);
+      provider.registerView(createWebviewKey('view-1'), mockWebviewView);
       expect(provider.getConnectedViewCount()).toBe(1);
 
       const view2 = { ...mockWebviewView, viewType: 'view2' };
-      provider.registerView('view-2', view2);
+      provider.registerView(createWebviewKey('view-2'), view2);
       expect(provider.getConnectedViewCount()).toBe(2);
     });
 
@@ -224,8 +230,8 @@ describe('WebviewApiProvider', () => {
         },
       };
 
-      provider.registerView('view-1', mockWebviewView);
-      provider.registerView('view-2', view2);
+      provider.registerView(createWebviewKey('view-1'), mockWebviewView);
+      provider.registerView(createWebviewKey('view-2'), view2);
 
       expect(provider.getConnectedViewCount()).toBe(2);
 
@@ -247,9 +253,9 @@ describe('WebviewApiProvider', () => {
 
   describe('dispose', () => {
     it('should clear all connected views', () => {
-      provider.registerView('view-1', mockWebviewView);
+      provider.registerView(createWebviewKey('view-1'), mockWebviewView);
       const view2 = { ...mockWebviewView, viewType: 'view2' };
-      provider.registerView('view-2', view2);
+      provider.registerView(createWebviewKey('view-2'), view2);
 
       expect(provider.getConnectedViewCount()).toBe(2);
 
@@ -264,7 +270,7 @@ describe('WebviewApiProvider', () => {
     });
 
     it('should prevent further operations after disposal', () => {
-      provider.registerView('view-1', mockWebviewView);
+      provider.registerView(createWebviewKey('view-1'), mockWebviewView);
       provider.dispose();
 
       // Should not crash when trying to trigger events on disposed provider
@@ -280,7 +286,7 @@ describe('WebviewApiProvider', () => {
     it('should handle null/undefined data in events', () => {
       // Reset for fresh state
       mockWebviewView.webview.postMessage = vi.fn().mockResolvedValue(true);
-      provider.registerView('test-view', mockWebviewView);
+      provider.registerView(createWebviewKey('test-view'), mockWebviewView);
 
       provider.triggerEvent('onDataUpdate', null);
       provider.triggerEvent('onDataUpdate', undefined);
@@ -299,7 +305,7 @@ describe('WebviewApiProvider', () => {
     });
 
     it('should handle empty parameter lists', () => {
-      provider.registerView('test-view', mockWebviewView);
+      provider.registerView(createWebviewKey('test-view'), mockWebviewView);
 
       // Cast to bypass TypeScript checking for testing purposes
       (provider as any).triggerEvent('onDataUpdate');
@@ -316,7 +322,7 @@ describe('WebviewApiProvider', () => {
     it('should handle rapid event triggering', () => {
       // Reset for fresh state
       mockWebviewView.webview.postMessage = vi.fn().mockResolvedValue(true);
-      provider.registerView('test-view', mockWebviewView);
+      provider.registerView(createWebviewKey('test-view'), mockWebviewView);
 
       const events = 10;
       for (let i = 0; i < events; i++) {
@@ -332,7 +338,7 @@ describe('WebviewApiProvider', () => {
       // Register multiple views concurrently
       for (let i = 0; i < views; i++) {
         const view = { ...mockWebviewView, viewType: `view${i}` };
-        provider.registerView(`view-${i}`, view);
+        provider.registerView(createWebviewKey(`view-${i}`), view);
       }
 
       expect(provider.getConnectedViewCount()).toBe(views);

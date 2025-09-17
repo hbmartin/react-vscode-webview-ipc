@@ -90,13 +90,17 @@ describe('types/index', () => {
 
     it('should re-export rpc types', async () => {
       const rpcModule = await import('../../../src/lib/types/rpc');
-      const indexModule = await import('../../../src/lib/types/index');
 
-      // Verify rpc types are available through index
+      // Verify rpc types are exported from rpc module
       expect('isViewApiRequest' in rpcModule).toBe(true);
       expect('isViewApiResponse' in rpcModule).toBe(true);
       expect('isViewApiError' in rpcModule).toBe(true);
       expect('isViewApiEvent' in rpcModule).toBe(true);
+
+      // Test that rpc types are accessible through index re-export
+      const { isViewApiRequest } = await import('../../../src/lib/types/index');
+      expect(isViewApiRequest).toBeDefined();
+      expect(typeof isViewApiRequest).toBe('function');
     });
   });
 });

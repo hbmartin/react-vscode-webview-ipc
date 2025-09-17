@@ -99,7 +99,17 @@ export const mockWebview = {
     return { dispose: vi.fn() };
   }),
   postMessage: vi.fn(),
-  asWebviewUri: vi.fn((uri: any) => `webview-${uri.toString()}`),
+  asWebviewUri: vi.fn((uri: any) => ({
+    scheme: 'webview',
+    authority: '',
+    path: uri.path || '',
+    query: '',
+    fragment: '',
+    fsPath: uri.fsPath || '',
+    with: vi.fn(),
+    toString: vi.fn(() => `webview-${uri.toString ? uri.toString() : uri}`),
+    toJSON: vi.fn(),
+  })),
   cspSource: 'test-csp',
   _messageCallback: null as any,
 };
@@ -126,6 +136,7 @@ export const mockWebviewView = {
   title: 'Test View',
   description: undefined,
   badge: undefined,
+  viewType: 'test.view',
   show: vi.fn(),
   onDidChangeVisibility: vi.fn(() => ({ dispose: vi.fn() })),
   onDidDispose: vi.fn(() => ({ dispose: vi.fn() })),
