@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { DeferredPromise, type WebviewLayout, type VsCodeApi, type StateReducer } from '../../../src/lib/client/types';
+import {
+  DeferredPromise,
+  type WebviewLayout,
+  type VsCodeApi,
+  type StateReducer,
+} from '../../../src/lib/client/types';
 
 describe('client types', () => {
   describe('DeferredPromise', () => {

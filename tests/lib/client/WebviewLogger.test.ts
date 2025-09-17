@@ -159,22 +159,34 @@ describe('WebviewLogger', () => {
       logger.error('Error message');
 
       expect(mockVsCodeApi.postMessage).toHaveBeenCalledTimes(4);
-      expect(mockVsCodeApi.postMessage).toHaveBeenNthCalledWith(1, expect.objectContaining({
-        level: LogLevel.DEBUG,
-        message: '[TestLogger] Debug message',
-      }));
-      expect(mockVsCodeApi.postMessage).toHaveBeenNthCalledWith(2, expect.objectContaining({
-        level: LogLevel.INFO,
-        message: '[TestLogger] Info message',
-      }));
-      expect(mockVsCodeApi.postMessage).toHaveBeenNthCalledWith(3, expect.objectContaining({
-        level: LogLevel.WARN,
-        message: '[TestLogger] Warning message',
-      }));
-      expect(mockVsCodeApi.postMessage).toHaveBeenNthCalledWith(4, expect.objectContaining({
-        level: LogLevel.ERROR,
-        message: '[TestLogger] Error message',
-      }));
+      expect(mockVsCodeApi.postMessage).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          level: LogLevel.DEBUG,
+          message: '[TestLogger] Debug message',
+        })
+      );
+      expect(mockVsCodeApi.postMessage).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          level: LogLevel.INFO,
+          message: '[TestLogger] Info message',
+        })
+      );
+      expect(mockVsCodeApi.postMessage).toHaveBeenNthCalledWith(
+        3,
+        expect.objectContaining({
+          level: LogLevel.WARN,
+          message: '[TestLogger] Warning message',
+        })
+      );
+      expect(mockVsCodeApi.postMessage).toHaveBeenNthCalledWith(
+        4,
+        expect.objectContaining({
+          level: LogLevel.ERROR,
+          message: '[TestLogger] Error message',
+        })
+      );
     });
 
     it('should handle complex data objects', () => {
@@ -200,12 +212,18 @@ describe('WebviewLogger', () => {
       logger.warn('Message with undefined', undefined);
 
       expect(mockVsCodeApi.postMessage).toHaveBeenCalledTimes(2);
-      expect(mockVsCodeApi.postMessage).toHaveBeenNthCalledWith(1, expect.objectContaining({
-        data: null,
-      }));
-      expect(mockVsCodeApi.postMessage).toHaveBeenNthCalledWith(2, expect.objectContaining({
-        data: undefined,
-      }));
+      expect(mockVsCodeApi.postMessage).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          data: null,
+        })
+      );
+      expect(mockVsCodeApi.postMessage).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          data: undefined,
+        })
+      );
     });
   });
 
@@ -214,18 +232,22 @@ describe('WebviewLogger', () => {
       const specialLogger = new WebviewLogger(mockVsCodeApi, 'Test-Logger_123');
       specialLogger.info('Test message');
 
-      expect(mockVsCodeApi.postMessage).toHaveBeenCalledWith(expect.objectContaining({
-        message: '[Test-Logger_123] Test message',
-      }));
+      expect(mockVsCodeApi.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: '[Test-Logger_123] Test message',
+        })
+      );
     });
 
     it('should handle empty tag', () => {
       const emptyTagLogger = new WebviewLogger(mockVsCodeApi, '');
       emptyTagLogger.info('Test message');
 
-      expect(mockVsCodeApi.postMessage).toHaveBeenCalledWith(expect.objectContaining({
-        message: '[] Test message',
-      }));
+      expect(mockVsCodeApi.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: '[] Test message',
+        })
+      );
     });
 
     it('should handle long tag names', () => {
@@ -233,9 +255,11 @@ describe('WebviewLogger', () => {
       const longTagLogger = new WebviewLogger(mockVsCodeApi, longTag);
       longTagLogger.info('Test message');
 
-      expect(mockVsCodeApi.postMessage).toHaveBeenCalledWith(expect.objectContaining({
-        message: `[${longTag}] Test message`,
-      }));
+      expect(mockVsCodeApi.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: `[${longTag}] Test message`,
+        })
+      );
     });
   });
 });

@@ -5,8 +5,5 @@
     "noEmit": true,
     "types": ["vitest/globals", "node", "@testing-library/jest-dom"]
   },
-  "include": [
-    "tests/**/*",
-    "src/**/*"
-  ]
+  "include": ["tests/**/*", "src/**/*"]
 }

@@ -122,8 +122,8 @@ describe('WebviewApiProvider', () => {
         viewType: 'view2',
         webview: {
           ...mockWebviewView.webview,
-          postMessage: vi.fn().mockResolvedValue(true)
-        }
+          postMessage: vi.fn().mockResolvedValue(true),
+        },
       };
       provider.registerView('test-view-2', view2);
 

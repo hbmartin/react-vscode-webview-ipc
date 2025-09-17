@@ -99,10 +99,10 @@ describe('host module exports', () => {
         'disallowedLogKeys',
         'WebviewApiProvider',
         'BaseWebviewViewProvider',
-        'isViewApiRequest'
+        'isViewApiRequest',
       ];
 
-      expectedExports.forEach(exportName => {
+      expectedExports.forEach((exportName) => {
         expect(exports).toContain(exportName);
       });
     });

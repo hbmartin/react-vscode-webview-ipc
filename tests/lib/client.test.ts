@@ -80,10 +80,10 @@ describe('client module exports', () => {
         'useWebviewApi',
         'useVscodeState',
         'useLogger',
-        'isViewApiRequest'
+        'isViewApiRequest',
       ];
 
-      expectedExports.forEach(exportName => {
+      expectedExports.forEach((exportName) => {
         expect(exports).toContain(exportName);
       });
     });
