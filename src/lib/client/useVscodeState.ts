@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { VsCodeApi } from '../types';
-import {
-  ACT,
-  type Patch,
-  PATCH,
-  type Action,
-  type WebviewKey,
-  type StateReducer,
-  isFnKey,
-} from '../types/ipcReducer';
+import { ACT, type Patch, PATCH, type Action, type WebviewKey } from '../types/reducer';
+import { isFnKey } from './ipcReducer';
+import type { StateReducer, VsCodeApi } from './types';
 
 type PostAction<A extends object> = Pick<Action<A>, 'key' | 'params'>;
 

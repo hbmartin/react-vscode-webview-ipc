@@ -13,15 +13,13 @@
     "type": "git",
     "url": "https://github.com/hbmartin/react-vscode-webview-ipc"
   },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "host": ["./dist/host.d.ts"],
+      "client": ["./dist/client.d.ts"]
+    }
+  },
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    },
     "./host": {
       "types": "./dist/host.d.ts",
       "import": "./dist/host.js",

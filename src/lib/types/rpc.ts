@@ -1,5 +1,3 @@
-export type Brand<T, B> = T & { readonly __brand: B };
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type HostCalls = Record<string, (...args: any[]) => any>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -134,13 +132,4 @@ export function isViewApiEvent<T extends HostCalls, E extends keyof T = keyof T>
     'value' in message &&
     Array.isArray(message.value)
   );
-}
-
-export type WebviewLayout = 'sidebar' | 'panel';
-
-// VS Code webview API
-export interface VsCodeApi {
-  postMessage(message: unknown): Thenable<boolean>;
-  getState(): unknown;
-  setState(state: unknown): void;
 }

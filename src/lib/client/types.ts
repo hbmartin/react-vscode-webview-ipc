@@ -1,3 +1,5 @@
+import type { FnKeys, Patches } from '../types/reducer';
+
 /**
  * Deferred promise for handling async responses with timeout management
  */
@@ -42,3 +44,16 @@ export class DeferredPromise<T> {
     this.settled = true;
   }
 }
+
+export type WebviewLayout = 'sidebar' | 'panel';
+// VS Code webview API
+
+export interface VsCodeApi {
+  postMessage(message: unknown): Thenable<boolean>;
+  getState(): unknown;
+  setState(state: unknown): void;
+}
+
+export type StateReducer<S, A> = {
+  [Key in FnKeys<A>]: (prevState: S, patch: Patches<A>[Key]) => S;
+};

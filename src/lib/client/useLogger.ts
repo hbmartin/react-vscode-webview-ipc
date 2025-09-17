@@ -1,8 +1,8 @@
 /* eslint-disable no-console */
 import { useMemo } from 'react';
-import type { VsCodeApi } from '../types';
-import { WebviewLogger } from '../host/WebviewLogger';
-import type { ILogger } from '../host/ILogger';
+import type { ILogger } from '../types';
+import { WebviewLogger } from './WebviewLogger';
+import type { VsCodeApi } from './types';
 
 /**
  * React hook to get a logger instance for use in webview components.

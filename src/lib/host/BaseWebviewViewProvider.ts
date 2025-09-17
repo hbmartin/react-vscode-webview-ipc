@@ -1,17 +1,15 @@
 import * as vscode from 'vscode';
-import type { HostCalls } from '../types';
+import { type HostCalls, type ILogger, isLogMessage, LogLevel, type LogMessage } from '../types';
 import {
-  isMyActionMessage,
   PATCH,
   type ActionDelegate,
   type FnKeys,
   type Patch,
   type Patches,
   type WebviewKey,
-} from '../types/ipcReducer';
-import { LogLevel, type ILogger } from './ILogger';
+} from '../types/reducer';
 import { getLogger } from './logger';
-import { isLogMessage, type LogMessage } from './WebviewLogger';
+import { isMyActionMessage } from './utils';
 import type { WebviewApiProvider } from './WebviewApiProvider';
 
 export abstract class BaseWebviewViewProvider<A extends object>

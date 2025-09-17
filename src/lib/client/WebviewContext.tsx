@@ -1,4 +1,5 @@
-import type { ClientCalls, HostCalls, VsCodeApi } from '../types';
+import type { ClientCalls, HostCalls } from '../types';
+import type { VsCodeApi } from './types';
 
 /**
  * Context value interface providing type-safe API access
