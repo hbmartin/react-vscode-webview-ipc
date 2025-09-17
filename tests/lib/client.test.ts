@@ -83,9 +83,9 @@ describe('client module exports', () => {
         'isViewApiRequest',
       ];
 
-      expectedExports.forEach((exportName) => {
+      for (const exportName of expectedExports) {
         expect(exports).toContain(exportName);
-      });
+      }
     });
 
     it('should not have unexpected exports', async () => {

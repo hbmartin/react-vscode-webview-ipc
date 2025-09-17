@@ -209,6 +209,7 @@ describe('WebviewLogger', () => {
 
     it('should handle null and undefined data', () => {
       logger.info('Message with null', null as any);
+      // eslint-disable-next-line sonarjs/no-undefined-argument
       logger.warn('Message with undefined', undefined);
 
       expect(mockVsCodeApi.postMessage).toHaveBeenCalledTimes(2);
