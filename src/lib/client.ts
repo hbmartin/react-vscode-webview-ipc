@@ -1,4 +1,3 @@
-// export { type WebviewContextValue } from './client/WebviewContext';
 export { WebviewProvider } from './client/WebviewProvider';
 export { createCtxKey, useWebviewApi } from './client/useWebviewApi';
 export { useVscodeState } from './client/useVscodeState';

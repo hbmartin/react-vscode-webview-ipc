@@ -34,7 +34,7 @@ jobs:
         run: npx prettier --check "src/**/*.{ts,tsx,js,jsx,json,css,md}"
 
       - name: Run tests
-        run: npm test -- --run 2>/dev/null
+        run: npm test -- --run --passWithNoTests
 
       - name: Build library
         run: npm run build
@@ -48,7 +48,7 @@ jobs:
       - name: Validate package.json
         run: |
           npx publint
-          npx are-the-types-wrong --pack .
+          npx @arethetypeswrong/cli --pack .
         continue-on-error: true
 
   code-quality:

@@ -10,10 +10,10 @@ import {
   type RequestContext,
   type ViewApiRequest,
 } from '../types';
-import { type VsCodeApi } from './types';
 import { generateId } from '../utils';
 import { DeferredPromise } from './types';
 import { TypedContexts } from './useWebviewApi';
+import type { VsCodeApi } from './types';
 import type { WebviewContextValue } from './WebviewContext';
 
 declare function acquireVsCodeApi(): VsCodeApi;
