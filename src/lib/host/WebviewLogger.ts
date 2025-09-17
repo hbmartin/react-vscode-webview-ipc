@@ -30,7 +30,7 @@ export class WebviewLogger implements ILogger {
     readonly tag: string
   ) {}
 
-  debug(message: string, data?: Record<any, any>): void {
+  debug(message: string, data?: Record<string, unknown>): void {
     this.vscode.postMessage({
       type: 'log',
       level: LogLevel.DEBUG,
@@ -39,7 +39,7 @@ export class WebviewLogger implements ILogger {
     } satisfies LogMessage);
   }
 
-  info(message: string, data?: Record<any, any>): void {
+  info(message: string, data?: Record<string, unknown>): void {
     this.vscode.postMessage({
       type: 'log',
       level: LogLevel.INFO,
@@ -48,7 +48,7 @@ export class WebviewLogger implements ILogger {
     } satisfies LogMessage);
   }
 
-  warn(message: string, data?: Record<any, any>): void {
+  warn(message: string, data?: Record<string, unknown>): void {
     this.vscode.postMessage({
       type: 'log',
       level: LogLevel.WARN,
@@ -57,7 +57,7 @@ export class WebviewLogger implements ILogger {
     } satisfies LogMessage);
   }
 
-  error(message: string, data?: Record<any, any>): void {
+  error(message: string, data?: Record<string, unknown>): void {
     this.vscode.postMessage({
       type: 'log',
       level: LogLevel.ERROR,

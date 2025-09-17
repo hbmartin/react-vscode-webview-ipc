@@ -1,8 +1,8 @@
 import type { HostCalls, RequestContext, ViewApiEvent } from '../types';
+import { generateId, getErrorMessage } from '../utils';
 import { getLogger } from './logger';
 import type { WebviewKey } from '../types/ipcReducer';
 import type * as vscode from 'vscode';
-import { generateId, getErrorMessage } from '../utils';
 
 /**
  * WebviewApiProvider implements the type-safe API contract between host and webviews.
@@ -13,7 +13,7 @@ interface ConnectedView {
   context: RequestContext;
 }
 
-export class WebviewApiProvider implements vscode.Disposable {
+export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposable {
   private readonly connectedViews = new Map<WebviewKey, ConnectedView>();
   private readonly disposables: vscode.Disposable[] = [];
   private readonly logger = getLogger('WebviewApiProvider');
@@ -22,14 +22,12 @@ export class WebviewApiProvider implements vscode.Disposable {
    * Type-safe event triggering to all connected webviews
    * Prunes failing webviews to prevent unbounded growth and repeated failures
    */
-  triggerEvent<E extends keyof HostCalls>(key: E, ...params: Parameters<HostCalls[E]>): void {
-    const event: ViewApiEvent<E> = {
+  triggerEvent<E extends keyof T>(key: E, ...params: Parameters<T[E]>): void {
+    const event: ViewApiEvent<T> = {
       type: 'event',
       key,
       value: params,
     };
-
-    this.logger.debug(`Triggering event: ${key}`);
 
     // Track views that fail to receive messages
     const failedViews: string[] = [];
@@ -48,7 +46,7 @@ export class WebviewApiProvider implements vscode.Disposable {
           },
           (error: unknown) => {
             this.logger.error(
-              `Failed to send event ${key} to view ${connectedView.context.viewType}:${viewId}: ${getErrorMessage(error)}`
+              `Failed to send event ${String(key)} to view ${connectedView.context.viewType}:${viewId}: ${getErrorMessage(error)}`
             );
 
             // Mark view for removal
@@ -58,7 +56,7 @@ export class WebviewApiProvider implements vscode.Disposable {
       } catch (error) {
         // Handle synchronous exceptions from postMessage
         this.logger.error(
-          `Exception while sending event ${key} to view ${connectedView.context.viewType}:${viewId}: ${String(error)}`
+          `Exception while sending event ${String(key)} to view ${connectedView.context.viewType}:${viewId}: ${String(error)}`
         );
 
         // Mark view for removal
@@ -69,14 +67,14 @@ export class WebviewApiProvider implements vscode.Disposable {
     // Prune failed views after iteration to avoid modifying collection during iteration
     if (failedViews.length > 0) {
       for (const viewId of failedViews) {
-        const connectedView = this.connectedViews.get(viewId);
+        const connectedView = this.connectedViews.get(viewId as WebviewKey);
         if (connectedView) {
           this.logger.warn(
             `Removing failed webview ${connectedView.context.viewType}:${viewId} from connectedViews`
           );
 
           // Only remove from connected views - let webviews handle their own disposal lifecycle
-          this.connectedViews.delete(viewId);
+          this.connectedViews.delete(viewId as WebviewKey);
         }
       }
 

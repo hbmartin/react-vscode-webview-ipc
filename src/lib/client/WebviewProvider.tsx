@@ -1,32 +1,39 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useRef } from 'react';
+import { createContext, useEffect, useMemo, useRef } from 'react';
 import {
   isViewApiError,
   isViewApiEvent,
   isViewApiResponse,
   type ClientCalls,
+  type CtxKey,
   type HostCalls,
   type RequestContext,
   type ViewApiRequest,
   type VsCodeApi,
 } from '../types';
 import { generateId } from '../utils';
-import { DeferredPromise, type WebviewContextValue } from './types';
+import { DeferredPromise } from './types';
+import { TypedContexts } from './useWebviewApi';
+import type { WebviewContextValue } from './WebviewContext';
 
 declare function acquireVsCodeApi(): VsCodeApi;
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 const vscodeApi = acquireVsCodeApi();
 
-interface WebviewProviderProps {
+interface WebviewProviderProps<T extends ClientCalls> {
   viewType: string;
   children: React.ReactNode;
+  contextKey: CtxKey<T>;
 }
 
 /**
  * WebviewProvider provides type-safe API access to webview components
  */
-export const WebviewProvider: React.FC<WebviewProviderProps> = ({ children, viewType }) => {
+export const WebviewProvider = <T extends ClientCalls, H extends HostCalls>({
+  children,
+  viewType,
+  contextKey,
+}: WebviewProviderProps<T>) => {
   const pendingRequests = useRef<Map<string, DeferredPromise<any>>>(new Map());
   const listeners = useRef<Map<keyof HostCalls, Set<(...args: any[]) => void>>>(new Map());
 
@@ -41,14 +48,14 @@ export const WebviewProvider: React.FC<WebviewProviderProps> = ({ children, view
   /**
    * Type-safe API caller with request/response matching
    */
-  const callApi = <K extends keyof ClientCalls>(
+  const callApi = <K extends keyof T = keyof T>(
     key: K,
-    ...params: Parameters<ClientCalls[K]>
-  ): ReturnType<ClientCalls[K]> => {
+    ...params: Parameters<T[K]>
+  ): Promise<ReturnType<T[K]>> => {
     const id = generateId('req');
-    const deferred = new DeferredPromise<Awaited<ReturnType<ClientCalls[K]>>>(key);
+    const deferred = new DeferredPromise<Awaited<ReturnType<T[K]>>>(key as string);
 
-    const request: ViewApiRequest<K> = {
+    const request: ViewApiRequest<T, K> = {
       type: 'request',
       id,
       key,
@@ -63,7 +70,7 @@ export const WebviewProvider: React.FC<WebviewProviderProps> = ({ children, view
     try {
       vscodeApi.postMessage(request);
     } catch (error) {
-      console.error(`Failed to send API request ${key}:`, error);
+      console.error(`Failed to send API request ${key as string}:`, error);
       deferred.clearTimeout();
       pendingRequests.current.delete(id);
       deferred.reject(error instanceof Error ? error : new Error(String(error)));
@@ -75,12 +82,12 @@ export const WebviewProvider: React.FC<WebviewProviderProps> = ({ children, view
   /**
    * Create typed API object using Proxy for dynamic method access
    */
-  const api = new Proxy({} as WebviewContextValue['api'], {
+  const api = new Proxy({} as WebviewContextValue<T>['api'], {
     // eslint-disable-next-line code-complete/enforce-meaningful-names
     get: (_, key: string) => {
       return (...args: any[]) => {
         // Type assertion is safe here because the proxy ensures correct typing at usage
-        return callApi(key, ...(args as Parameters<ClientCalls[keyof ClientCalls]>));
+        return callApi(key, ...(args as Parameters<T[keyof T]>));
       };
     },
   });
@@ -107,6 +114,7 @@ export const WebviewProvider: React.FC<WebviewProviderProps> = ({ children, view
    * Handle messages from the extension host
    */
   useEffect(() => {
+    // eslint-disable-next-line sonarjs/cognitive-complexity
     const handleMessage = (event: MessageEvent<unknown>) => {
       const message = event.data;
 
@@ -128,9 +136,9 @@ export const WebviewProvider: React.FC<WebviewProviderProps> = ({ children, view
         } else {
           console.warn(`No pending request found for error ID: ${message.id}`);
         }
-      } else if (isViewApiEvent(message)) {
+      } else if (isViewApiEvent<H>(message)) {
         // Handle event
-        const callbacks = listeners.current.get(message.key);
+        const callbacks = listeners.current.get(message.key as keyof HostCalls);
         if (callbacks && callbacks.size > 0) {
           for (const callback of callbacks) {
             try {
@@ -172,7 +180,13 @@ export const WebviewProvider: React.FC<WebviewProviderProps> = ({ children, view
     };
   }, []);
 
-  const contextValue: WebviewContextValue = {
+  const context = useMemo(() => {
+    const context = createContext<WebviewContextValue<T> | undefined>(undefined);
+    TypedContexts.set(contextKey, context);
+    return context;
+  }, [contextKey]);
+
+  const contextValue: WebviewContextValue<T> = {
     api,
     addListener,
     removeListener,
@@ -180,5 +194,5 @@ export const WebviewProvider: React.FC<WebviewProviderProps> = ({ children, view
     vscode: vscodeApi,
   };
 
-  return <WebviewContext.Provider value={contextValue}>{children}</WebviewContext.Provider>;
+  return <context.Provider value={contextValue}>{children}</context.Provider>;
 };
