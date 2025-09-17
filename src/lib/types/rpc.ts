@@ -133,3 +133,12 @@ export function isViewApiEvent<T extends HostCalls, E extends keyof T = keyof T>
     Array.isArray(message.value)
   );
 }
+
+export function isViewApiMessage(message: unknown): boolean {
+  return (
+    isViewApiRequest(message) ||
+    isViewApiResponse(message) ||
+    isViewApiError(message) ||
+    isViewApiEvent(message)
+  );
+}

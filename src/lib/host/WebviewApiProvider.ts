@@ -36,7 +36,6 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
     for (const [viewId, connectedView] of this.connectedViews.entries()) {
       // eslint-disable-next-line sonarjs/no-try-promise
       try {
-        // Wrap postMessage in try-catch to handle synchronous exceptions
         const postPromise = connectedView.view.webview.postMessage(event);
 
         // Handle async failures
