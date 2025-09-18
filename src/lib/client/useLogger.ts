@@ -16,7 +16,7 @@ export function useLogger(tag: string, vscode?: VsCodeApi): ILogger {
   );
 }
 
-function createConsoleLogger(tag: string): ILogger {
+export function createConsoleLogger(tag: string): ILogger {
   return {
     debug: (message: string, data?: Record<string, unknown>) =>
       console.debug(`[${tag}] ${message}`, data),
