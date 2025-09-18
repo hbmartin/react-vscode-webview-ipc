@@ -10,7 +10,8 @@ describe('host module exports', () => {
 
     expect(typeof Logger).toBe('object');
     expect(typeof getLogger).toBe('function');
-    expect(Array.isArray(disallowedLogKeys)).toBe(true);
+    // Recent change: disallowedLogKeys is now a Set
+    expect(disallowedLogKeys instanceof Set).toBe(true);
   });
 
   it('should export WebviewApiProvider', async () => {
@@ -52,13 +53,13 @@ describe('host module exports', () => {
       expect(typeof logger.debug).toBe('function');
     });
 
-    it('should have disallowedLogKeys array with expected values', async () => {
+    it('should have disallowedLogKeys set with expected values', async () => {
       const { disallowedLogKeys } = await import('../../src/lib/host');
 
-      expect(disallowedLogKeys.length).toBeGreaterThan(0);
-      expect(disallowedLogKeys).toContain('password');
-      expect(disallowedLogKeys).toContain('token');
-      expect(disallowedLogKeys).toContain('secret');
+      expect(disallowedLogKeys.size).toBeGreaterThan(0);
+      expect(disallowedLogKeys.has('password')).toBe(true);
+      expect(disallowedLogKeys.has('token')).toBe(true);
+      expect(disallowedLogKeys.has('secret')).toBe(true);
     });
 
     it('should have working isViewApiRequest function', async () => {

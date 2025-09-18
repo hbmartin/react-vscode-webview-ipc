@@ -2,7 +2,14 @@ import { LogLevel, type ILogger } from '../types';
 import { createConsoleLogger } from '../utils';
 import type * as vscode from 'vscode';
 
-export const disallowedLogKeys = ['password', 'secret', 'token', 'apiKey', 'apiSecret', 'content'];
+export const disallowedLogKeys: Set<string> = new Set([
+  'password',
+  'secret',
+  'token',
+  'apikey',
+  'apisecret',
+  'content',
+]);
 
 function removePromptsFromData<T>(dictionary: T | undefined | null): T | undefined {
   if (dictionary === null || dictionary === undefined) {
@@ -19,7 +26,7 @@ function removePromptsFromData<T>(dictionary: T | undefined | null): T | undefin
   try {
     const clone = structuredClone(dictionary) as Record<string, unknown>;
     for (const [key, value] of Object.entries(clone)) {
-      if (disallowedLogKeys.includes(key.toLowerCase())) {
+      if (disallowedLogKeys.has(key.toLowerCase())) {
         // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete clone[key];
         continue;
@@ -110,6 +117,9 @@ export const Logger: ILogger & {
    */
   {
     setOutputChannel: (outputChannel: vscode.OutputChannel | undefined) => {
+      if (LoggerImpl.outputChannel === outputChannel) {
+        return;
+      }
       LoggerImpl.dispose();
       LoggerImpl.outputChannel = outputChannel;
     },
