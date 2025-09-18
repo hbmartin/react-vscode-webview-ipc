@@ -11,6 +11,9 @@ describe('host/logger', () => {
     mockOutputChannel.appendLine.mockClear();
     mockOutputChannel.dispose.mockClear();
 
+    // Route Logger output to the mocked VS Code output channel
+    Logger.setOutputChannel(mockOutputChannel);
+
     // Mock date for consistent timestamps
     originalDateNow = Date.prototype.toISOString;
     Date.prototype.toISOString = vi.fn(() => '2024-01-01T12:00:00.000Z');
@@ -19,6 +22,8 @@ describe('host/logger', () => {
   afterEach(() => {
     Date.prototype.toISOString = originalDateNow;
     vi.clearAllMocks();
+    // Reset output channel between tests
+    Logger.setOutputChannel(undefined);
   });
 
   describe('Logger static methods', () => {
@@ -320,14 +325,10 @@ describe('host/logger', () => {
 
   describe('disallowedLogKeys', () => {
     it('should export correct disallowed keys', () => {
-      expect(disallowedLogKeys).toEqual([
-        'password',
-        'secret',
-        'token',
-        'apiKey',
-        'apiSecret',
-        'content',
-      ]);
+      // Recent change: exported as Set with lowercase API keys
+      expect(disallowedLogKeys).toEqual(
+        new Set(['password', 'secret', 'token', 'apikey', 'apisecret', 'content'])
+      );
     });
   });
 
