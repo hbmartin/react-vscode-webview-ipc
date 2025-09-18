@@ -1,3 +1,6 @@
+/* eslint-disable no-console */
+import type { ILogger } from './types';
+
 /**
  * Generate a unique ID for requests
  */
@@ -7,4 +10,17 @@ export function generateId(prefix: string): string {
 }
 export function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+export function createConsoleLogger(tag: string): ILogger {
+  return {
+    debug: (message: string, data?: Record<string, unknown>) =>
+      console.debug(`[${tag}] ${message}`, data),
+    info: (message: string, data?: Record<string, unknown>) =>
+      console.info(`[${tag}] ${message}`, data),
+    warn: (message: string, data?: Record<string, unknown>) =>
+      console.warn(`[${tag}] ${message}`, data),
+    error: (message: string, data?: Record<string, unknown>) =>
+      console.error(`[${tag}] ${message}`, data),
+    dispose: () => {},
+  };
 }
