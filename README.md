@@ -30,7 +30,7 @@ npm i react-vscode-webview-ipc
 
 - WebviewKey: a branded string identifying your view instance. Use a stable id (often your view type).
 - Messages:
-  - Reducer IPC: `{ type: 'act' }` messages from webview → host; `{ type: 'patch' }` messages from host → webview.
+  - Reducer IPC: `{ type: 'act' }` messages from webview → host; `{ type: 'patch' }` messages from host → webview; `{ type: 'actError' }` from host → webview when an action fails.
   - RPC IPC: `{ type: 'request' }` from webview → host; `{ type: 'response'|'error' }` from host → webview; `{ type: 'event' }` from host → webview broadcast.
 - Logging: webview logs are forwarded to the host’s Output channel.
 
@@ -41,16 +41,19 @@ Use this when your webview wants unidirectional state updates managed via a redu
 ### Types and Building Blocks
 
 - On the webview:
-  - `useVscodeState<S, A>(vscode, providerId, postReducer, initialState)` returns `[state, actor]`.
+  - `useVscodeState<S, A>(vscode, providerId, postReducer, initialState, options?)` returns `[state, actor]`.
     - `state: S` – your current state
     - `actor: A` – a proxy with methods matching your action interface
+    - `options.onError?: (error, actionKey?) => void` – called when a patch arrives for an unknown reducer key, or when the host reports that an action failed (defaults to `console.error`)
   - `postReducer: StateReducer<S, A>` maps each action key to `(prevState, patch) => newState`.
 - On the host:
   - Extend `BaseWebviewViewProvider<A>` and implement:
     - `webviewActionDelegate: ActionDelegate<A>` – map action keys to host handlers that return a patch (sync or async)
     - `generateWebviewHtml(webview, extensionUri)` – return the webview HTML
     - `handleMessage(message, webview)` – handle any messages you want besides reducer IPC (e.g., your RPC requests)
+  - If a delegate throws or rejects (or the action key is unknown), the error is logged and an `{ type: 'actError' }` message is posted back to the webview (surfaced through `useVscodeState`'s `onError`). Override `onActionError(key, error)` to add custom host-side handling.
   - Optionally pass a `WebviewApiProvider` instance to the base class constructor to enable host→webview event broadcasting (RPC paradigm).
+  - Optionally pass `BaseWebviewViewProviderOptions` as the 4th constructor argument: `{ queueHiddenMessages?: boolean; maxQueuedMessages?: number }`. By default, patches posted while the view is hidden (or not yet resolved) are queued (up to 100) and flushed when it becomes visible, instead of being silently dropped.
 
 ### Minimal Example
 
@@ -185,10 +188,16 @@ sequenceDiagram
   participant H as Extension Host
   W->>VS: postMessage { type: 'act', providerId, key, params }
   VS->>H: onDidReceiveMessage(message)
-  H->>H: webviewActionDelegate[key](...params) => patch
-  H-->>VS: postMessage { type: 'patch', providerId, key, patch }
-  VS-->>W: window message
-  W->>W: postReducer[key](prev, patch) => newState
+  alt success
+    H->>H: webviewActionDelegate[key](...params) => patch
+    H-->>VS: postMessage { type: 'patch', providerId, key, patch }
+    VS-->>W: window message
+    W->>W: postReducer[key](prev, patch) => newState
+  else delegate throws / unknown key
+    H-->>VS: postMessage { type: 'actError', providerId, key, error }
+    VS-->>W: window message
+    W->>W: options.onError(error, key)
+  end
 ```
 
 ## RPC Promises IPC (Typed Requests/Responses + Events)
@@ -203,10 +212,11 @@ Use this when your webview needs to call host functions and await results. The h
   - Call `const { api, addListener, removeListener, vscode } = useWebviewApi(ctxKey)` inside components.
     - `api.method(...)` returns a promise (typed from your `ClientCalls` interface).
     - `addListener('eventKey', cb)` / `removeListener(...)` manage host-pushed events.
+  - Requests time out (rejecting the promise) if the host never replies. The default is 30s (`DEFAULT_REQUEST_TIMEOUT_MS`); tune it with `<WebviewProvider requestTimeoutMs={5000}>`, or pass `0` to disable timeouts.
 - On the host:
   - Create a `WebviewApiProvider<HostEvents>()` and pass it to your `BaseWebviewViewProvider` constructor (to register views for events).
   - In your provider’s `handleMessage`, detect requests via `isViewApiRequest(message)`, dispatch to your host API handlers, and respond with `{ type: 'response'|'error', id, value }`.
-  - Use `apiProvider.triggerEvent('eventKey', ...args)` to broadcast events to connected webviews.
+  - Use `apiProvider.triggerEvent('eventKey', ...args)` to broadcast events to connected webviews. Events for hidden views are queued per view (up to 100 by default) and flushed when the view becomes visible; configure via `new WebviewApiProvider({ queueHiddenEvents, maxQueuedEvents })`.
 
 ### Minimal Example
 
@@ -375,7 +385,7 @@ sequenceDiagram
 
 - They are designed to coexist. The webview can dispatch reducer actions for state, and call RPC methods for imperative operations.
 - The library ensures messages don’t conflict:
-  - `useVscodeState` listens for `{ providerId, type: 'patch' }` messages.
+  - `useVscodeState` listens for `{ providerId, type: 'patch' }` and `{ providerId, type: 'actError' }` messages.
   - `WebviewProvider` listens for `{ type: 'response'|'error'|'event' }` messages and ignores messages with `providerId` present.
 - In your host provider, `resolveWebviewView` (from the base class) handles reducer `act/patch` automatically; implement `handleMessage` for RPC requests.
 
@@ -404,18 +414,25 @@ logger.info('hello');
 
 Host exports (`react-vscode-webview-ipc/host`):
 
-- `BaseWebviewViewProvider<A>`
-- `WebviewApiProvider<T extends HostCalls>`
+- `BaseWebviewViewProvider<A>` (constructor accepts `BaseWebviewViewProviderOptions` for hidden-view message queueing; override `onActionError(key, error)` to observe action failures)
+- `WebviewApiProvider<T extends HostCalls>` (constructor accepts `WebviewApiProviderOptions` for hidden-view event queueing)
 - `isViewApiRequest(message)`
 - `Logger`, `getLogger`, `disallowedLogKeys`
+- Types: `ActionDelegate`, `ActionError`, `BaseWebviewViewProviderOptions`, `WebviewApiProviderOptions`
 
 Client exports (`react-vscode-webview-ipc/client`):
 
-- `WebviewProvider<T extends ClientCalls>`
+- `WebviewProvider<T extends ClientCalls>` (accepts a `requestTimeoutMs` prop; `DEFAULT_REQUEST_TIMEOUT_MS` is 30s)
 - `useWebviewApi(ctxKey)` and `createCtxKey<T>()`
-- `useVscodeState<S, A>(vscode, providerId, postReducer, initial)`
+- `useVscodeState<S, A>(vscode, providerId, postReducer, initial, options?)`
 - `useLogger(tag, vscode)`
-- Types: `ClientCalls`, `HostCalls`, `CtxKey`, `WebviewKey`, `StateReducer`
+- Types: `ClientCalls`, `HostCalls`, `CtxKey`, `WebviewKey`, `StateReducer`, `UseVscodeStateOptions`
+
+## Robustness Behavior
+
+- RPC requests reject with a timeout error if the host never responds (default 30s, configurable per provider via `requestTimeoutMs`, disable with `0`), so pending promises can't leak.
+- Reducer action failures on the host (unknown action key, or a delegate that throws/rejects) are logged, reported to the provider's `onActionError` hook, and posted back to the webview as `{ type: 'actError' }` — surfaced via `useVscodeState`'s `onError` option. Message handlers never throw into the void.
+- Patches and events destined for hidden (or not-yet-resolved) webviews are queued — bounded, oldest-first eviction — and flushed automatically when the view becomes visible, instead of being silently dropped. Both queues can be disabled or resized via the constructor options above.
 
 ## References
 

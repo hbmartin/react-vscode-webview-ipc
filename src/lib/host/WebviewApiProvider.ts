@@ -8,18 +8,41 @@ import type * as vscode from 'vscode';
  * WebviewApiProvider implements the type-safe API contract between host and webviews.
  * It handles all API calls and event dispatching with full type safety.
  */
-interface ConnectedView {
+interface ConnectedView<T extends HostCalls> {
   view: vscode.WebviewView;
   context: RequestContext;
+  pendingEvents: ViewApiEvent<T>[];
 }
 
+export interface WebviewApiProviderOptions {
+  /**
+   * When true (the default), events triggered while a webview is hidden are
+   * queued per view and flushed when the view becomes visible, instead of
+   * being silently dropped by VS Code.
+   */
+  queueHiddenEvents?: boolean;
+  /** Maximum number of queued events kept per hidden view. Defaults to 100. */
+  maxQueuedEvents?: number;
+}
+
+// eslint-disable-next-line code-complete/no-magic-numbers-except-zero-one
+const DEFAULT_MAX_QUEUED_EVENTS = 100;
+
 export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposable {
-  private readonly connectedViews = new Map<WebviewKey, ConnectedView>();
+  private readonly connectedViews = new Map<WebviewKey, ConnectedView<T>>();
   private readonly disposables: vscode.Disposable[] = [];
   private readonly logger = getLogger('WebviewApiProvider');
+  private readonly queueHiddenEvents: boolean;
+  private readonly maxQueuedEvents: number;
+
+  constructor(options?: WebviewApiProviderOptions) {
+    this.queueHiddenEvents = options?.queueHiddenEvents ?? true;
+    this.maxQueuedEvents = options?.maxQueuedEvents ?? DEFAULT_MAX_QUEUED_EVENTS;
+  }
 
   /**
    * Type-safe event triggering to all connected webviews
+   * Events for hidden views are queued (see WebviewApiProviderOptions)
    * Prunes failing webviews to prevent unbounded growth and repeated failures
    */
   triggerEvent<E extends keyof T>(key: E, ...params: Parameters<T[E]>): void {
@@ -34,6 +57,11 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
 
     // Send to all connected views
     for (const [viewId, connectedView] of this.connectedViews.entries()) {
+      if (!connectedView.view.visible && this.queueHiddenEvents) {
+        this.enqueueEvent(connectedView, event, viewId);
+        continue;
+      }
+
       // eslint-disable-next-line sonarjs/no-try-promise
       try {
         const postPromise = connectedView.view.webview.postMessage(event);
@@ -100,11 +128,18 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
       sessionId: generateId('session'),
     };
 
-    this.connectedViews.set(id, { view, context });
+    this.connectedViews.set(id, { view, context, pendingEvents: [] });
     this.logger.info(`Registered webview: ${view.viewType}:${id}`);
+
+    const visibilityListener = view.onDidChangeVisibility(() => {
+      if (view.visible) {
+        this.flushPendingEvents(id);
+      }
+    });
 
     // Clean up on dispose
     view.onDidDispose(() => {
+      visibilityListener.dispose();
       this.connectedViews.delete(id);
       this.logger.info(`Unregistered webview: ${view.viewType}:${id}`);
     });
@@ -126,5 +161,53 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
     }
     this.connectedViews.clear();
     this.logger.info('WebviewApiProvider disposed');
+  }
+
+  private enqueueEvent(connectedView: ConnectedView<T>, event: ViewApiEvent<T>, viewId: string) {
+    if (connectedView.pendingEvents.length >= this.maxQueuedEvents) {
+      const dropped = connectedView.pendingEvents.shift();
+      this.logger.warn(
+        `Event queue for hidden view ${connectedView.context.viewType}:${viewId} is full (${String(this.maxQueuedEvents)}); dropping oldest event '${String(dropped?.key)}'`
+      );
+    }
+    connectedView.pendingEvents.push(event);
+  }
+
+  /**
+   * Flush events queued while a view was hidden
+   */
+  private flushPendingEvents(id: WebviewKey): void {
+    const connectedView = this.connectedViews.get(id);
+    if (
+      connectedView === undefined ||
+      !connectedView.view.visible ||
+      connectedView.pendingEvents.length === 0
+    ) {
+      return;
+    }
+
+    const queued = connectedView.pendingEvents.splice(0);
+    this.logger.debug(
+      `Flushing ${String(queued.length)} queued event(s) to view ${connectedView.context.viewType}:${id}`
+    );
+    for (const event of queued) {
+      // eslint-disable-next-line sonarjs/no-try-promise
+      try {
+        connectedView.view.webview.postMessage(event).then(
+          () => {
+            // Message sent successfully
+          },
+          (error: unknown) => {
+            this.logger.error(
+              `Failed to flush event ${String(event.key)} to view ${connectedView.context.viewType}:${id}: ${getErrorMessage(error)}`
+            );
+          }
+        );
+      } catch (error) {
+        this.logger.error(
+          `Exception while flushing event ${String(event.key)} to view ${connectedView.context.viewType}:${id}: ${String(error)}`
+        );
+      }
+    }
   }
 }
