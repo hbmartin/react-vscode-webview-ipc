@@ -52,9 +52,6 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
       value: params,
     };
 
-    // Track views that fail to receive messages
-    const failedViews: string[] = [];
-
     // Send to all connected views
     for (const [viewId, connectedView] of this.connectedViews.entries()) {
       if (!connectedView.view.visible && this.queueHiddenEvents) {
@@ -62,52 +59,32 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
         continue;
       }
 
-      // eslint-disable-next-line sonarjs/no-try-promise
-      try {
-        const postPromise = connectedView.view.webview.postMessage(event);
-
-        // Handle async failures
-        postPromise.then(
-          () => {
-            // Message sent successfully
-          },
-          (error: unknown) => {
-            this.logger.error(
-              `Failed to send event ${String(key)} to view ${connectedView.context.viewType}:${viewId}: ${getErrorMessage(error)}`
-            );
-
-            // Mark view for removal
-            failedViews.push(viewId);
-          }
-        );
-      } catch (error) {
-        // Handle synchronous exceptions from postMessage
-        this.logger.error(
-          `Exception while sending event ${String(key)} to view ${connectedView.context.viewType}:${viewId}: ${String(error)}`
-        );
-
-        // Mark view for removal
-        failedViews.push(viewId);
-      }
-    }
-
-    // Prune failed views after iteration to avoid modifying collection during iteration
-    if (failedViews.length > 0) {
-      for (const viewId of failedViews) {
-        const connectedView = this.connectedViews.get(viewId as WebviewKey);
-        if (connectedView) {
-          this.logger.warn(
-            `Removing failed webview ${connectedView.context.viewType}:${viewId} from connectedViews`
+      this.postEventToView(
+        connectedView,
+        event,
+        viewId,
+        (error) => {
+          this.pruneConnectedView(
+            viewId,
+            connectedView,
+            `Failed to send event ${String(key)} to view ${connectedView.context.viewType}:${viewId}: ${getErrorMessage(error)}`
           );
+        },
+        () => {
+          if (!this.queueHiddenEvents) {
+            this.logger.warn(
+              `Event ${String(key)} was not delivered to view ${connectedView.context.viewType}:${viewId}`
+            );
+            return;
+          }
 
-          // Only remove from connected views - let webviews handle their own disposal lifecycle
-          this.connectedViews.delete(viewId as WebviewKey);
+          this.logger.warn(
+            `Event ${String(key)} was not delivered to view ${connectedView.context.viewType}:${viewId}; re-queueing`
+          );
+          if (this.connectedViews.get(viewId) === connectedView) {
+            this.enqueueEvent(connectedView, event, viewId);
+          }
         }
-      }
-
-      this.logger.info(
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        `Removed ${failedViews.length} failed webview(s) from connectedViews. Remaining: ${this.connectedViews.size}`
       );
     }
   }
@@ -136,13 +113,17 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
         this.flushPendingEvents(id);
       }
     });
+    this.disposables.push(visibilityListener);
 
     // Clean up on dispose
-    view.onDidDispose(() => {
+    const disposeListener = view.onDidDispose(() => {
       visibilityListener.dispose();
-      this.connectedViews.delete(id);
-      this.logger.info(`Unregistered webview: ${view.viewType}:${id}`);
+      if (this.connectedViews.get(id)?.view === view) {
+        this.connectedViews.delete(id);
+        this.logger.info(`Unregistered webview: ${view.viewType}:${id}`);
+      }
     });
+    this.disposables.push(disposeListener);
   }
 
   /**
@@ -164,6 +145,13 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
   }
 
   private enqueueEvent(connectedView: ConnectedView<T>, event: ViewApiEvent<T>, viewId: string) {
+    if (this.maxQueuedEvents <= 0) {
+      this.logger.warn(
+        `Dropping event '${String(event.key)}' for hidden view ${connectedView.context.viewType}:${viewId}: maxQueuedEvents is ${String(this.maxQueuedEvents)}`
+      );
+      return;
+    }
+
     if (connectedView.pendingEvents.length >= this.maxQueuedEvents) {
       const dropped = connectedView.pendingEvents.shift();
       this.logger.warn(
@@ -190,24 +178,79 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
     this.logger.debug(
       `Flushing ${String(queued.length)} queued event(s) to view ${connectedView.context.viewType}:${id}`
     );
+
     for (const event of queued) {
-      // eslint-disable-next-line sonarjs/no-try-promise
-      try {
-        connectedView.view.webview.postMessage(event).then(
-          () => {
-            // Message sent successfully
-          },
-          (error: unknown) => {
-            this.logger.error(
-              `Failed to flush event ${String(event.key)} to view ${connectedView.context.viewType}:${id}: ${getErrorMessage(error)}`
-            );
+      if (this.connectedViews.get(id) !== connectedView) {
+        break;
+      }
+
+      this.postEventToView(
+        connectedView,
+        event,
+        id,
+        (error) => {
+          this.pruneConnectedView(
+            id,
+            connectedView,
+            `Failed to flush event ${String(event.key)} to view ${connectedView.context.viewType}:${id}: ${getErrorMessage(error)}`
+          );
+        },
+        () => {
+          this.logger.warn(
+            `Event ${String(event.key)} was not delivered while flushing ${connectedView.context.viewType}:${id}; re-queueing`
+          );
+          if (this.connectedViews.get(id) === connectedView) {
+            this.enqueueEvent(connectedView, event, id);
           }
-        );
-      } catch (error) {
-        this.logger.error(
-          `Exception while flushing event ${String(event.key)} to view ${connectedView.context.viewType}:${id}: ${String(error)}`
-        );
+        }
+      );
+    }
+  }
+
+  private postEventToView(
+    connectedView: ConnectedView<T>,
+    event: ViewApiEvent<T>,
+    viewId: WebviewKey,
+    onFailure: (error: unknown) => void,
+    onNotDelivered: () => void
+  ): void {
+    // eslint-disable-next-line sonarjs/no-try-promise
+    try {
+      void connectedView.view.webview.postMessage(event).then(
+        (delivered) => {
+          if (!delivered && this.connectedViews.get(viewId) === connectedView) {
+            onNotDelivered();
+          }
+        },
+        (error: unknown) => {
+          if (this.connectedViews.get(viewId) === connectedView) {
+            onFailure(error);
+          }
+        }
+      );
+    } catch (error) {
+      if (this.connectedViews.get(viewId) === connectedView) {
+        onFailure(error);
       }
     }
+  }
+
+  private pruneConnectedView(
+    viewId: WebviewKey,
+    connectedView: ConnectedView<T>,
+    reason: string
+  ): void {
+    if (this.connectedViews.get(viewId) !== connectedView) {
+      this.logger.debug(
+        `Ignoring stale failure for webview ${connectedView.context.viewType}:${viewId}`
+      );
+      return;
+    }
+
+    this.logger.error(reason);
+    this.logger.warn(
+      `Removing failed webview ${connectedView.context.viewType}:${viewId} from connectedViews`
+    );
+    this.connectedViews.delete(viewId);
   }
 }

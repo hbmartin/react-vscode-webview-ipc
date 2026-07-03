@@ -1,6 +1,6 @@
 # React + VSCode Webview = IPC
 
-[![npm version](https://badge.fury.io/js/react-vscode-webview-ipc.svg)](https://www.npmjs.com/package/react-vscode-webview-ipc)
+[![npm version](https://img.shields.io/npm/v/react-vscode-webview-ipc?color=green)](https://www.npmjs.com/package/react-vscode-webview-ipc)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/hbmartin/react-vscode-webview-ipc)
 [![CI](https://github.com/hbmartin/react-vscode-webview-ipc/actions/workflows/ci.yml/badge.svg)](https://github.com/hbmartin/react-vscode-webview-ipc/actions/workflows/ci.yml)
 [![NPM License](https://img.shields.io/npm/l/react-vscode-webview-ipc?color=blue)](https://github.com/hbmartin/react-vscode-webview-ipc/blob/main/LICENSE.txt)
@@ -430,7 +430,7 @@ Client exports (`react-vscode-webview-ipc/client`):
 
 ## Robustness Behavior
 
-- RPC requests reject with a timeout error if the host never responds (default 30s, configurable per provider via `requestTimeoutMs`, disable with `0`), so pending promises can't leak.
+- RPC requests reject with a timeout error if the host never responds when timeouts are enabled (default 30s, configurable per provider via `requestTimeoutMs`, disable with `0`), bounding pending promises for the enabled case.
 - Reducer action failures on the host (unknown action key, or a delegate that throws/rejects) are logged, reported to the provider's `onActionError` hook, and posted back to the webview as `{ type: 'actError' }` — surfaced via `useVscodeState`'s `onError` option. Message handlers never throw into the void.
 - Patches and events destined for hidden (or not-yet-resolved) webviews are queued — bounded, oldest-first eviction — and flushed automatically when the view becomes visible, instead of being silently dropped. Both queues can be disabled or resized via the constructor options above.
 

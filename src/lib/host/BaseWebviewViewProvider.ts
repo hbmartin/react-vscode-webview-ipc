@@ -36,6 +36,7 @@ export abstract class BaseWebviewViewProvider<A extends object>
   private readonly queueHiddenMessages: boolean;
   private readonly maxQueuedMessages: number;
   private readonly outbox: (Patch<A> | ActionError)[] = [];
+  private hasResolvedView = false;
   protected abstract readonly webviewActionDelegate: ActionDelegate<A>;
 
   constructor(
@@ -56,6 +57,7 @@ export abstract class BaseWebviewViewProvider<A extends object>
   ): Thenable<void> | void {
     this.logger.debug('Resolving webview view');
     this._view = webviewView;
+    this.hasResolvedView = true;
 
     webviewView.webview.options = {
       enableScripts: true,
@@ -93,6 +95,7 @@ export abstract class BaseWebviewViewProvider<A extends object>
       visibilityListener.dispose();
       if (this._view === webviewView) {
         this._view = undefined;
+        this.outbox.length = 0;
       }
       this.onWebviewDispose();
     });
@@ -193,7 +196,13 @@ export abstract class BaseWebviewViewProvider<A extends object>
    */
   private handleActionFailure(key: string, error: Error): void {
     this.logger.error(`Action '${key}' failed: ${error.message}`);
-    this.onActionError(key, error);
+    try {
+      this.onActionError(key, error);
+    } catch (hookError) {
+      this.logger.error(
+        `onActionError hook failed for action '${key}': ${hookError instanceof Error ? hookError.message : String(hookError)}`
+      );
+    }
     this.postOrQueue({
       type: ACT_ERROR,
       providerId: this.providerId,
@@ -223,6 +232,18 @@ export abstract class BaseWebviewViewProvider<A extends object>
     if (!this.queueHiddenMessages) {
       this.logger.warn(
         `Dropping message of type '${message.type}': webview is ${view === undefined ? 'not resolved' : 'hidden'}`
+      );
+      return;
+    }
+
+    if (view === undefined && this.hasResolvedView) {
+      this.logger.warn(`Dropping message of type '${message.type}': webview is disposed`);
+      return;
+    }
+
+    if (this.maxQueuedMessages <= 0) {
+      this.logger.warn(
+        `Dropping message of type '${message.type}': maxQueuedMessages is ${String(this.maxQueuedMessages)}`
       );
       return;
     }
