@@ -243,7 +243,7 @@ describe('host/logger', () => {
       };
 
       // BigInt will cause JSON.stringify to fail, triggering the fallback
-      Logger.info('Test', unserializable as any);
+      Logger.info('Test', unserializable);
 
       expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
         '[12:00:00.000Z] [INFO] Test : unserializable data'

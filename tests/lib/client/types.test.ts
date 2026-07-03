@@ -172,11 +172,9 @@ describe('client types', () => {
 
   describe('WebviewLayout type', () => {
     it('should accept valid layout values', () => {
-      const sidebarLayout: WebviewLayout = 'sidebar';
-      const panelLayout: WebviewLayout = 'panel';
+      const layouts: WebviewLayout[] = ['sidebar', 'panel'];
 
-      expect(sidebarLayout).toBe('sidebar');
-      expect(panelLayout).toBe('panel');
+      expect(layouts).toEqual(['sidebar', 'panel']);
     });
   });
 

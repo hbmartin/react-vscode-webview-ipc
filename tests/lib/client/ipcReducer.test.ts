@@ -143,19 +143,18 @@ describe('ipcReducer', () => {
     });
 
     it('should handle getters and setters', () => {
+      let value = 0;
       const obj = {
-        _value: 0,
         get value() {
-          return this._value;
+          return value;
         },
         set value(v) {
-          this._value = v;
+          value = v;
         },
       };
 
       // Getters and setters are not functions when accessed
       expect(isFnKey('value', obj)).toBe(false);
-      expect(isFnKey('_value', obj)).toBe(false);
     });
 
     it('should handle objects with null prototype', () => {

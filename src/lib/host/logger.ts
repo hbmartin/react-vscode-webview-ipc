@@ -11,6 +11,11 @@ export const disallowedLogKeys: Set<string> = new Set([
   'content',
 ]);
 
+// eslint-disable-next-line code-complete/no-magic-numbers-except-zero-one
+const ISO_TIME_SPLIT_LIMIT = 2;
+
+type LoggerMethod = keyof Omit<ILogger, 'dispose'>;
+
 function removePromptsFromData<T>(dictionary: T | undefined | null): T | undefined {
   if (dictionary === null || dictionary === undefined) {
     return undefined;
@@ -23,6 +28,7 @@ function removePromptsFromData<T>(dictionary: T | undefined | null): T | undefin
     return dictionary;
   }
 
+  // eslint-disable-next-line unicorn/try-complexity
   try {
     const clone = structuredClone(dictionary) as Record<string, unknown>;
     for (const [key, value] of Object.entries(clone)) {
@@ -35,7 +41,7 @@ function removePromptsFromData<T>(dictionary: T | undefined | null): T | undefin
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         clone[key] = value.map((item) => removePromptsFromData(item)) as unknown;
       } else if (typeof value === 'object' && value !== null) {
-        clone[key] = removePromptsFromData(value as Record<string, unknown>) as unknown;
+        clone[key] = removePromptsFromData(value);
       }
     }
     return clone as unknown as T;
@@ -54,19 +60,19 @@ class LoggerImpl {
   static outputChannel: vscode.OutputChannel | undefined = undefined;
   private static readonly consoleLogger = createConsoleLogger('RVW');
 
-  public static debug(message: string, data: Record<string, unknown> | undefined = undefined) {
+  public static debug(message: string, data?: Record<string, unknown>) {
     this.log(LogLevel.DEBUG, message, data);
   }
 
-  public static info(message: string, data: Record<string, unknown> | undefined = undefined) {
+  public static info(message: string, data?: Record<string, unknown>) {
     this.log(LogLevel.INFO, message, data);
   }
 
-  public static warn(message: string, data: Record<string, unknown> | undefined = undefined) {
+  public static warn(message: string, data?: Record<string, unknown>) {
     this.log(LogLevel.WARN, message, data);
   }
 
-  public static error(message: string, data: Record<string, unknown> | undefined = undefined) {
+  public static error(message: string, data?: Record<string, unknown>) {
     this.log(LogLevel.ERROR, message, data);
   }
 
@@ -75,13 +81,11 @@ class LoggerImpl {
     this.outputChannel = undefined;
   }
 
-  private static log(level: LogLevel, message: string, data: Record<string, unknown> | undefined) {
-    const timestamp = new Date().toISOString().split('T')[1];
+  private static log(level: LogLevel, message: string, data?: Record<string, unknown>) {
+    const timestamp = new Date().toISOString().split('T', ISO_TIME_SPLIT_LIMIT)[1];
     const cleanedData = removePromptsFromData(data);
     if (this.outputChannel === undefined) {
-      const methodName = LogLevel[level].toLowerCase() as
-        | undefined
-        | keyof Omit<ILogger, 'dispose'>;
+      const methodName = LogLevel[level].toLowerCase() as LoggerMethod | undefined;
       if (methodName !== undefined && typeof this.consoleLogger[methodName] === 'function') {
         if (cleanedData === undefined) {
           this.consoleLogger[methodName](`[${timestamp}] ${message}`);

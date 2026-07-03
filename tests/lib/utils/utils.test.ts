@@ -39,7 +39,7 @@ describe('utils', () => {
       // Math.random() returns 0.5, toString(36) gives 'i', slice(2,11) gives up to 9 chars
       expect(id).toMatch(/^test_\d+_/);
       // The random component should be at least 1 character
-      expect(id.split('_')[2].length).toBeGreaterThan(0);
+      expect(id.split('_', 3)[2].length).toBeGreaterThan(0);
     });
 
     it('should generate different IDs for same prefix', () => {
@@ -84,7 +84,7 @@ describe('utils', () => {
       const longPrefix = 'a'.repeat(1000);
       const id = generateId(longPrefix);
       expect(id).toContain(longPrefix);
-      expect(id).toMatch(new RegExp(`^${longPrefix}_\\d+_[a-z0-9]{9}$`));
+      expect(id).toMatch(new RegExp(String.raw`^${longPrefix}_\d+_[a-z0-9]{9}$`));
     });
 
     it('should handle unicode characters in prefix', () => {
@@ -171,7 +171,7 @@ describe('utils', () => {
         code: 'ERR_001',
         message: 'Complex error',
         toString() {
-          return `${this.code}: ${this.message}`;
+          return 'ERR_001: Complex error';
         },
       };
       expect(getErrorMessage(complexError)).toBe('ERR_001: Complex error');

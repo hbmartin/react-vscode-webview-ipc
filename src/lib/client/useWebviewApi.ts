@@ -21,5 +21,5 @@ export const useWebviewApi = <T extends ClientCalls>(
 };
 
 export function createCtxKey<T extends ClientCalls>(contextKey: string): CtxKey<T> {
-  return Object.freeze({ id: Symbol(contextKey) }) as CtxKey<T>;
+  return Object.freeze({ id: Symbol(contextKey) });
 }

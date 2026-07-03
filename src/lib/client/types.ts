@@ -31,7 +31,7 @@ export class DeferredPromise<T> {
    * Clear the timeout handle if it exists
    */
   clearTimeout(): void {
-    if (this.timeoutHandle) {
+    if (this.timeoutHandle !== undefined) {
       clearTimeout(this.timeoutHandle);
       this.timeoutHandle = undefined;
     }

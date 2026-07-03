@@ -11,7 +11,7 @@ describe('host module exports', () => {
     expect(typeof Logger).toBe('object');
     expect(typeof getLogger).toBe('function');
     // Recent change: disallowedLogKeys is now a Set
-    expect(disallowedLogKeys instanceof Set).toBe(true);
+    expect(disallowedLogKeys).toBeInstanceOf(Set);
   });
 
   it('should export WebviewApiProvider', async () => {

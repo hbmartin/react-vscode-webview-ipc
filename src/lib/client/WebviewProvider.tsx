@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createContext, useEffect, useMemo, useRef } from 'react';
+import { createContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   isViewApiError,
   isViewApiEvent,
@@ -18,7 +18,7 @@ import type { WebviewContextValue } from './WebviewContext';
 
 declare function acquireVsCodeApi(): VsCodeApi;
 
-// TODO: option to allow vsdcode api to be passed in to component
+// TODO: option to allow vscode api to be passed in to component
 const vscodeApi = acquireVsCodeApi();
 
 /** Default timeout applied to RPC calls awaiting a host response. */
@@ -48,13 +48,13 @@ export const WebviewProvider = <T extends ClientCalls, H extends HostCalls>({
   const pendingRequests = useRef<Map<string, DeferredPromise<any>>>(new Map());
   const listeners = useRef<Map<keyof HostCalls, Set<(...args: any[]) => void>>>(new Map());
 
-  // Generate context for this webview instance
-  const contextRef = useRef<RequestContext>({
+  // Generate context for this webview instance once.
+  const [requestContext] = useState<RequestContext>(() => ({
     viewId: generateId('webview'),
     viewType: viewType,
     timestamp: Date.now(),
     sessionId: generateId('session'),
-  });
+  }));
 
   /**
    * Type-safe API caller with request/response matching
@@ -71,7 +71,7 @@ export const WebviewProvider = <T extends ClientCalls, H extends HostCalls>({
       id,
       key,
       params,
-      context: contextRef.current,
+      context: requestContext,
     };
 
     pendingRequests.current.set(id, deferred);
