@@ -271,6 +271,32 @@ describe('BaseWebviewViewProvider', () => {
       expect(hookSpy).toHaveBeenCalledWith('fetchData', failure);
     });
 
+    it('should still post an actError message when onActionError throws', async () => {
+      const failure = new Error('delegate failed');
+      (provider['webviewActionDelegate'].fetchData as any).mockRejectedValueOnce(failure);
+      vi.spyOn(provider as any, 'onActionError').mockImplementationOnce(() => {
+        throw new Error('hook failed');
+      });
+      const loggerSpy = vi.spyOn(provider['logger'], 'error');
+
+      await messageCallback({
+        type: 'act',
+        providerId: 'test.provider',
+        key: 'fetchData',
+        params: ['123'],
+      });
+
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining("onActionError hook failed for action 'fetchData'")
+      );
+      expect(mockWebview.postMessage).toHaveBeenCalledWith({
+        type: ACT_ERROR,
+        providerId: 'test.provider',
+        key: 'fetchData',
+        error: 'delegate failed',
+      });
+    });
+
     it('should not propagate rejections from handleMessage', async () => {
       provider.handleMessage.mockRejectedValueOnce(new Error('consumer handler failed'));
       const loggerSpy = vi.spyOn(provider['logger'], 'error');
@@ -383,6 +409,24 @@ describe('BaseWebviewViewProvider', () => {
       expect(patches).toEqual([{ data: 'two' }, { data: 'three' }]);
     });
 
+    it('should drop hidden messages when maxQueuedMessages is zero', () => {
+      const zeroQueueProvider = new TestWebviewProvider(
+        'test.provider' as WebviewKey,
+        mockExtensionUri,
+        mockApiProvider,
+        { maxQueuedMessages: 0 }
+      );
+      zeroQueueProvider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
+
+      mockWebviewView.visible = false;
+      zeroQueueProvider.postPatch('fetchData', { data: 'dropped' });
+
+      mockWebviewView.visible = true;
+      visibilityCallback();
+
+      expect(mockWebview.postMessage).not.toHaveBeenCalled();
+    });
+
     it('should drop messages while hidden when queueing is disabled', () => {
       const nonQueueingProvider = new TestWebviewProvider(
         'test.provider' as WebviewKey,
@@ -401,7 +445,7 @@ describe('BaseWebviewViewProvider', () => {
       expect(mockWebview.postMessage).not.toHaveBeenCalled();
     });
 
-    it('should stop posting to a disposed view and queue instead', () => {
+    it('should stop posting to a disposed view', () => {
       provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
       disposeCallback();
 
@@ -409,6 +453,32 @@ describe('BaseWebviewViewProvider', () => {
         provider.postPatch('fetchData', { data: 'after dispose' });
       }).not.toThrow();
       expect(mockWebview.postMessage).not.toHaveBeenCalled();
+    });
+
+    it('should not flush stale messages from a disposed session into a new view', () => {
+      provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
+
+      mockWebviewView.visible = false;
+      provider.postPatch('fetchData', { data: 'before dispose' });
+      disposeCallback();
+      provider.postPatch('fetchData', { data: 'after dispose' });
+
+      const nextWebview = {
+        ...mockWebview,
+        postMessage: vi.fn(),
+        onDidReceiveMessage: vi.fn(() => ({ dispose: vi.fn() })),
+      };
+      const nextWebviewView = {
+        ...mockWebviewView,
+        webview: nextWebview,
+        visible: true,
+        onDidChangeVisibility: vi.fn(() => ({ dispose: vi.fn() })),
+        onDidDispose: vi.fn(() => ({ dispose: vi.fn() })),
+      };
+
+      provider.resolveWebviewView(nextWebviewView, {} as any, {} as any);
+
+      expect(nextWebview.postMessage).not.toHaveBeenCalled();
     });
   });
 

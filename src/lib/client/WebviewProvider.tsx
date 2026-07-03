@@ -18,6 +18,7 @@ import type { WebviewContextValue } from './WebviewContext';
 
 declare function acquireVsCodeApi(): VsCodeApi;
 
+// TODO: option to allow vsdcode api to be passed in to component
 const vscodeApi = acquireVsCodeApi();
 
 /** Default timeout applied to RPC calls awaiting a host response. */
