@@ -20,10 +20,19 @@ declare function acquireVsCodeApi(): VsCodeApi;
 
 const vscodeApi = acquireVsCodeApi();
 
+/** Default timeout applied to RPC calls awaiting a host response. */
+// eslint-disable-next-line code-complete/no-magic-numbers-except-zero-one
+export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+
 interface WebviewProviderProps<T extends ClientCalls> {
   viewType: string;
   children: React.ReactNode;
   contextKey: CtxKey<T>;
+  /**
+   * Milliseconds to wait for a host response before rejecting an API call.
+   * Defaults to DEFAULT_REQUEST_TIMEOUT_MS (30s); pass 0 to disable timeouts.
+   */
+  requestTimeoutMs?: number;
 }
 
 /**
@@ -33,6 +42,7 @@ export const WebviewProvider = <T extends ClientCalls, H extends HostCalls>({
   children,
   viewType,
   contextKey,
+  requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
 }: WebviewProviderProps<T>) => {
   const pendingRequests = useRef<Map<string, DeferredPromise<any>>>(new Map());
   const listeners = useRef<Map<keyof HostCalls, Set<(...args: any[]) => void>>>(new Map());
@@ -64,6 +74,18 @@ export const WebviewProvider = <T extends ClientCalls, H extends HostCalls>({
     };
 
     pendingRequests.current.set(id, deferred);
+
+    // Reject if the host never replies (e.g. extension error, view disposed
+    // mid-flight) so the promise doesn't hang forever in pendingRequests
+    if (Number.isFinite(requestTimeoutMs) && requestTimeoutMs > 0) {
+      deferred.timeoutHandle = setTimeout(() => {
+        if (pendingRequests.current.delete(id)) {
+          deferred.reject(
+            new Error(`Request '${key as string}' timed out after ${String(requestTimeoutMs)}ms`)
+          );
+        }
+      }, requestTimeoutMs);
+    }
 
     // Send the request
     // eslint-disable-next-line sonarjs/no-try-promise
@@ -151,9 +173,10 @@ export const WebviewProvider = <T extends ClientCalls, H extends HostCalls>({
       } else if (message !== null && typeof message === 'object' && 'providerId' in message) {
         // No-op, handled by new IPC system
       } else {
-        // Handle legacy messages that don't follow the new format
-        // This ensures compatibility during migration
-        console.error('Received legacy message format:', message);
+        // Unrecognized window messages are expected (other scripts, other IPC
+        // systems, legacy formats), so keep this quiet
+        // eslint-disable-next-line no-console
+        console.debug('Received unrecognized message format:', message);
       }
     };
 

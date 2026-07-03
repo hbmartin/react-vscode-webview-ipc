@@ -1,6 +1,6 @@
-export { WebviewProvider } from './client/WebviewProvider';
+export { WebviewProvider, DEFAULT_REQUEST_TIMEOUT_MS } from './client/WebviewProvider';
 export { createCtxKey, useWebviewApi } from './client/useWebviewApi';
-export { useVscodeState } from './client/useVscodeState';
+export { useVscodeState, type UseVscodeStateOptions } from './client/useVscodeState';
 export { useLogger } from './client/useLogger';
 export { isViewApiRequest, type CtxKey } from './types';
 export type { ClientCalls, HostCalls, ViewApiResponse, ViewApiError } from './types';

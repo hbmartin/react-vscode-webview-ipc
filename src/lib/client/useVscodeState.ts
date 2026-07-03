@@ -1,9 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ACT, type Patch, PATCH, type Action, type WebviewKey } from '../types/reducer';
+import {
+  ACT,
+  ACT_ERROR,
+  type ActionError,
+  type Patch,
+  PATCH,
+  type Action,
+  type WebviewKey,
+} from '../types/reducer';
 import { isFnKey } from './ipcReducer';
 import type { StateReducer, VsCodeApi } from './types';
 
 type PostAction<A extends object> = Pick<Action<A>, 'key' | 'params'>;
+
+export interface UseVscodeStateOptions {
+  /**
+   * Called when a patch arrives for an unknown reducer key, or when the host
+   * reports that an action failed (unknown key or a delegate threw/rejected).
+   * Defaults to logging via console.error.
+   */
+  onError?: (error: Error, actionKey?: string) => void;
+}
 
 function isMyPatchMessage<A extends object>(message: unknown, id: WebviewKey): message is Patch<A> {
   return (
@@ -20,13 +37,31 @@ function isMyPatchMessage<A extends object>(message: unknown, id: WebviewKey): m
   );
 }
 
+function isMyActionErrorMessage(message: unknown, id: WebviewKey): message is ActionError {
+  return (
+    message !== null &&
+    message !== undefined &&
+    typeof message === 'object' &&
+    'providerId' in message &&
+    'type' in message &&
+    'key' in message &&
+    'error' in message &&
+    message.type === ACT_ERROR &&
+    typeof message.key === 'string' &&
+    typeof message.error === 'string' &&
+    typeof message.providerId === 'string' &&
+    message.providerId === id
+  );
+}
+
 const dangerousKeys = new Set(['__proto__', 'constructor', 'prototype']);
 
 export function useVscodeState<S, A extends object>(
   vscode: VsCodeApi,
   providerId: WebviewKey,
   postReducer: StateReducer<S, A>,
-  initialState: S | (() => S)
+  initialState: S | (() => S),
+  options?: UseVscodeStateOptions
 ): readonly [S, A] {
   const [state, setState] = useState<S>(
     typeof initialState === 'function' ? (initialState as () => S)() : initialState
@@ -34,6 +69,18 @@ export function useVscodeState<S, A extends object>(
   const validKeys = useMemo(
     () => new Set(Object.keys(postReducer).filter((k) => !dangerousKeys.has(k))),
     [postReducer]
+  );
+
+  const onError = options?.onError;
+  const reportError = useCallback(
+    (error: Error, actionKey?: string) => {
+      if (onError === undefined) {
+        console.error(`[useVscodeState:${providerId}]`, error);
+      } else {
+        onError(error, actionKey);
+      }
+    },
+    [onError, providerId]
   );
 
   useEffect(() => {
@@ -48,15 +95,22 @@ export function useVscodeState<S, A extends object>(
           const patchFn = postReducer[data.key];
           setState((prev) => patchFn(prev, data.patch));
         } else {
-          throw new Error(`Could not find a function for ${String(data.key)} in postReducer`);
+          // Never throw inside a message handler: the exception would be
+          // uncatchable by the consumer. Report it instead.
+          reportError(
+            new Error(`Could not find a function for ${String(data.key)} in postReducer`),
+            String(data.key)
+          );
         }
+      } else if (isMyActionErrorMessage(data, providerId)) {
+        reportError(new Error(`Action '${data.key}' failed on the host: ${data.error}`), data.key);
       }
     };
     window.addEventListener('message', handler);
     return () => {
       window.removeEventListener('message', handler);
     };
-  }, [postReducer, providerId, validKeys]);
+  }, [postReducer, providerId, validKeys, reportError]);
 
   const postAction = useCallback(
     (arg: PostAction<A>) => {

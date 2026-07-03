@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useVscodeState } from '../../../src/lib/client/useVscodeState';
-import { PATCH, ACT, type WebviewKey } from '../../../src/lib/types/reducer';
+import { PATCH, ACT, ACT_ERROR, type WebviewKey } from '../../../src/lib/types/reducer';
 import type { StateReducer, VsCodeApi } from '../../../src/lib/client/types';
 
 // Test interfaces
@@ -288,7 +288,8 @@ describe('useVscodeState', () => {
       expect(state.count).toBe(0); // Should not change
     });
 
-    it('should throw error for unknown reducer key in patch', () => {
+    it('should not throw for unknown reducer key in patch and log an error', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
       renderHook(() => useVscodeState(mockVscode, providerId, postReducer, initialState));
 
       const patchMessage = {
@@ -302,7 +303,91 @@ describe('useVscodeState', () => {
         act(() => {
           messageListeners[0](new MessageEvent('message', { data: patchMessage }));
         });
-      }).toThrow('Could not find a function for unknownKey in postReducer');
+      }).not.toThrow();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('useVscodeState'),
+        expect.objectContaining({
+          message: 'Could not find a function for unknownKey in postReducer',
+        })
+      );
+      consoleSpy.mockRestore();
+    });
+
+    it('should report unknown reducer key to onError callback when provided', () => {
+      const onError = vi.fn();
+      renderHook(() =>
+        useVscodeState(mockVscode, providerId, postReducer, initialState, { onError })
+      );
+
+      act(() => {
+        messageListeners[0](
+          new MessageEvent('message', {
+            data: {
+              type: PATCH,
+              providerId: 'test.provider',
+              key: 'unknownKey',
+              patch: undefined,
+            },
+          })
+        );
+      });
+
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Could not find a function for unknownKey in postReducer',
+        }),
+        'unknownKey'
+      );
+    });
+
+    it('should report host action errors to onError callback', () => {
+      const onError = vi.fn();
+      renderHook(() =>
+        useVscodeState(mockVscode, providerId, postReducer, initialState, { onError })
+      );
+
+      act(() => {
+        messageListeners[0](
+          new MessageEvent('message', {
+            data: {
+              type: ACT_ERROR,
+              providerId: 'test.provider',
+              key: 'increment',
+              error: 'delegate failed',
+            },
+          })
+        );
+      });
+
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: "Action 'increment' failed on the host: delegate failed",
+        }),
+        'increment'
+      );
+    });
+
+    it('should ignore action errors from other providers', () => {
+      const onError = vi.fn();
+      renderHook(() =>
+        useVscodeState(mockVscode, providerId, postReducer, initialState, { onError })
+      );
+
+      act(() => {
+        messageListeners[0](
+          new MessageEvent('message', {
+            data: {
+              type: ACT_ERROR,
+              providerId: 'other.provider',
+              key: 'increment',
+              error: 'delegate failed',
+            },
+          })
+        );
+      });
+
+      expect(onError).not.toHaveBeenCalled();
     });
 
     it('should handle multiple patch messages', () => {

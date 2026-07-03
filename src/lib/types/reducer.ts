@@ -3,6 +3,7 @@ import type { Brand } from '.';
 export type WebviewKey = Brand<string, 'WebviewKey'>;
 export const PATCH = 'patch';
 export const ACT = 'act';
+export const ACT_ERROR = 'actError';
 
 export type FnKeys<T> = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -31,6 +32,16 @@ export interface Patch<A, K extends FnKeys<A> = FnKeys<A>> extends IpcMessage {
   readonly type: typeof PATCH;
   readonly key: K;
   readonly patch: Patches<A>[K];
+}
+
+/**
+ * Sent from host → webview when an action could not be handled
+ * (unknown action key, or the delegate threw / rejected).
+ */
+export interface ActionError extends IpcMessage {
+  readonly type: typeof ACT_ERROR;
+  readonly key: string;
+  readonly error: string;
 }
 
 export type Patches<A> = {

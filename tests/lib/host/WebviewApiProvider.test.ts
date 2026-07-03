@@ -206,6 +206,103 @@ describe('WebviewApiProvider', () => {
     });
   });
 
+  describe('hidden view event queueing', () => {
+    function createHiddenView() {
+      let visibilityCallback: (() => void) | undefined;
+      const view: any = {
+        ...mockWebviewView,
+        viewType: 'hiddenView',
+        visible: false,
+        webview: {
+          ...mockWebviewView.webview,
+          postMessage: vi.fn().mockResolvedValue(true),
+        },
+        onDidChangeVisibility: vi.fn((callback: () => void) => {
+          visibilityCallback = callback;
+          return { dispose: vi.fn() };
+        }),
+        onDidDispose: vi.fn(() => ({ dispose: vi.fn() })),
+      };
+      return {
+        view,
+        show: () => {
+          view.visible = true;
+          visibilityCallback?.();
+        },
+      };
+    }
+
+    it('should queue events for hidden views instead of posting', () => {
+      const { view } = createHiddenView();
+      provider.registerView(createWebviewKey('hidden-view'), view);
+
+      provider.triggerEvent('onDataUpdate', { data: 'while hidden' });
+
+      expect(view.webview.postMessage).not.toHaveBeenCalled();
+      expect(provider.getConnectedViewCount()).toBe(1);
+    });
+
+    it('should flush queued events in order when the view becomes visible', () => {
+      const { view, show } = createHiddenView();
+      provider.registerView(createWebviewKey('hidden-view'), view);
+
+      provider.triggerEvent('onDataUpdate', { data: 'first' });
+      provider.triggerEvent('onUserAction', 'click', { x: 1 });
+
+      show();
+
+      expect(view.webview.postMessage).toHaveBeenCalledTimes(2);
+      expect(view.webview.postMessage).toHaveBeenNthCalledWith(1, {
+        type: 'event',
+        key: 'onDataUpdate',
+        value: [{ data: 'first' }],
+      });
+      expect(view.webview.postMessage).toHaveBeenNthCalledWith(2, {
+        type: 'event',
+        key: 'onUserAction',
+        value: ['click', { x: 1 }],
+      });
+    });
+
+    it('should drop the oldest event when the per-view queue is full', () => {
+      const boundedProvider = new WebviewApiProvider<TestHostCalls>({ maxQueuedEvents: 2 });
+      const { view, show } = createHiddenView();
+      boundedProvider.registerView(createWebviewKey('hidden-view'), view);
+
+      boundedProvider.triggerEvent('onDataUpdate', { data: 'one' });
+      boundedProvider.triggerEvent('onDataUpdate', { data: 'two' });
+      boundedProvider.triggerEvent('onDataUpdate', { data: 'three' });
+
+      show();
+
+      expect(view.webview.postMessage).toHaveBeenCalledTimes(2);
+      const values = view.webview.postMessage.mock.calls.map((call: any[]) => call[0].value);
+      expect(values).toEqual([[{ data: 'two' }], [{ data: 'three' }]]);
+      boundedProvider.dispose();
+    });
+
+    it('should post directly to hidden views when queueing is disabled', () => {
+      const nonQueueingProvider = new WebviewApiProvider<TestHostCalls>({
+        queueHiddenEvents: false,
+      });
+      const { view } = createHiddenView();
+      nonQueueingProvider.registerView(createWebviewKey('hidden-view'), view);
+
+      nonQueueingProvider.triggerEvent('onDataUpdate', { data: 'test' });
+
+      expect(view.webview.postMessage).toHaveBeenCalledTimes(1);
+      nonQueueingProvider.dispose();
+    });
+
+    it('should still post immediately to visible views', () => {
+      provider.registerView(createWebviewKey('visible-view'), mockWebviewView);
+
+      provider.triggerEvent('onDataUpdate', { data: 'test' });
+
+      expect(mockWebviewView.webview.postMessage).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('getConnectedViewCount', () => {
     it('should return 0 when no views are connected', () => {
       expect(provider.getConnectedViewCount()).toBe(0);
