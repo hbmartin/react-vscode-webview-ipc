@@ -81,6 +81,33 @@ describe('WebviewApiProvider', () => {
       expect(provider.getConnectedViewCount()).toBe(0);
     });
 
+    it('should remove per-view listeners when the view is disposed', () => {
+      const viewId = createWebviewKey('test-view-1');
+      let disposeView: (() => void) | undefined;
+      const visibilityDisposable = { dispose: vi.fn() };
+      const disposeDisposable = { dispose: vi.fn() };
+      const disposableView = {
+        ...mockWebviewView,
+        onDidChangeVisibility: vi.fn(() => visibilityDisposable),
+        onDidDispose: vi.fn((callback: () => void) => {
+          disposeView = callback;
+          return disposeDisposable;
+        }),
+      };
+
+      provider.registerView(viewId, disposableView);
+      disposeView?.();
+
+      expect(provider.getConnectedViewCount()).toBe(0);
+      expect(visibilityDisposable.dispose).toHaveBeenCalledTimes(1);
+      expect(disposeDisposable.dispose).toHaveBeenCalledTimes(1);
+
+      provider.dispose();
+
+      expect(visibilityDisposable.dispose).toHaveBeenCalledTimes(1);
+      expect(disposeDisposable.dispose).toHaveBeenCalledTimes(1);
+    });
+
     it('should not let an old dispose callback unregister a replacement view', () => {
       const viewId = createWebviewKey('test-view-1');
       let disposeOldView: (() => void) | undefined;
@@ -193,6 +220,8 @@ describe('WebviewApiProvider', () => {
     });
 
     it('should handle postMessage promise rejection', async () => {
+      const visibilityDisposable = { dispose: vi.fn() };
+      const disposeDisposable = { dispose: vi.fn() };
       const failingView = {
         ...mockWebviewView,
         viewType: 'failingView',
@@ -200,6 +229,8 @@ describe('WebviewApiProvider', () => {
           ...mockWebviewView.webview,
           postMessage: vi.fn().mockRejectedValue(new Error('Message failed')),
         },
+        onDidChangeVisibility: vi.fn(() => visibilityDisposable),
+        onDidDispose: vi.fn(() => disposeDisposable),
       };
 
       provider.registerView(createWebviewKey('failing-view'), failingView);
@@ -216,6 +247,13 @@ describe('WebviewApiProvider', () => {
       });
 
       expect(provider.getConnectedViewCount()).toBe(1);
+      expect(visibilityDisposable.dispose).toHaveBeenCalledTimes(1);
+      expect(disposeDisposable.dispose).toHaveBeenCalledTimes(1);
+
+      provider.dispose();
+
+      expect(visibilityDisposable.dispose).toHaveBeenCalledTimes(1);
+      expect(disposeDisposable.dispose).toHaveBeenCalledTimes(1);
     });
 
     it('should handle synchronous postMessage exceptions', () => {
@@ -345,26 +383,63 @@ describe('WebviewApiProvider', () => {
       zeroQueueProvider.dispose();
     });
 
-    it('should requeue queued events when flush resolves false', async () => {
-      const { view, show } = createHiddenView();
-      view.webview.postMessage = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-      provider.registerView(createWebviewKey('hidden-view'), view);
+    it('should retry queued events when flush resolves false while the view remains visible', async () => {
+      vi.useFakeTimers();
+      try {
+        const { view, show } = createHiddenView();
+        view.webview.postMessage = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+        provider.registerView(createWebviewKey('hidden-view'), view);
 
-      provider.triggerEvent('onDataUpdate', { data: 'retry' });
-      show();
-      await Promise.resolve();
+        provider.triggerEvent('onDataUpdate', { data: 'retry' });
+        show();
+        await Promise.resolve();
 
-      expect(view.webview.postMessage).toHaveBeenCalledTimes(1);
+        expect(view.webview.postMessage).toHaveBeenCalledTimes(1);
 
-      show();
-      await Promise.resolve();
+        vi.advanceTimersByTime(100);
 
-      expect(view.webview.postMessage).toHaveBeenCalledTimes(2);
-      expect(view.webview.postMessage).toHaveBeenLastCalledWith({
-        type: 'event',
-        key: 'onDataUpdate',
-        value: [{ data: 'retry' }],
-      });
+        expect(view.webview.postMessage).toHaveBeenCalledTimes(2);
+        expect(view.webview.postMessage).toHaveBeenLastCalledWith({
+          type: 'event',
+          key: 'onDataUpdate',
+          value: [{ data: 'retry' }],
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should retry direct visible events when postMessage resolves false', async () => {
+      vi.useFakeTimers();
+      try {
+        const visibleView = {
+          ...mockWebviewView,
+          visible: true,
+          webview: {
+            ...mockWebviewView.webview,
+            postMessage: vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true),
+          },
+          onDidChangeVisibility: vi.fn(() => ({ dispose: vi.fn() })),
+          onDidDispose: vi.fn(() => ({ dispose: vi.fn() })),
+        };
+        provider.registerView(createWebviewKey('visible-view'), visibleView);
+
+        provider.triggerEvent('onDataUpdate', { data: 'retry visible' });
+        await Promise.resolve();
+
+        expect(visibleView.webview.postMessage).toHaveBeenCalledTimes(1);
+
+        vi.advanceTimersByTime(100);
+
+        expect(visibleView.webview.postMessage).toHaveBeenCalledTimes(2);
+        expect(visibleView.webview.postMessage).toHaveBeenLastCalledWith({
+          type: 'event',
+          key: 'onDataUpdate',
+          value: [{ data: 'retry visible' }],
+        });
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('should prune a hidden view when queued event flush rejects', async () => {

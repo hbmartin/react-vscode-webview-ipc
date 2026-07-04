@@ -16,8 +16,8 @@ describe('types/index', () => {
       // Should be able to use as strings
       expect(typeof userId).toBe('string');
       expect(typeof productId).toBe('string');
-      expect(userId.length).toBe(8);
-      expect(productId.includes('product')).toBe(true);
+      expect(userId).toHaveLength(8);
+      expect(productId).toContain('product');
     });
 
     it('should prevent accidental assignment between different branded types', () => {

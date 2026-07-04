@@ -29,9 +29,8 @@ export default defineConfig([
       js.configs.recommended,
       ...tsConfigs.recommendedTypeChecked,
       ...tsConfigs.strictTypeChecked,
-      reactHooks.configs['recommended-latest'],
+      reactHooks.configs.flat['recommended-latest'],
       reactRefresh.configs.vite,
-      reactRefresh.configs.recommended,
       eslintPluginUnicorn.configs.all,
       eslintPluginPrettierRecommended,
       importPlugin.flatConfigs.recommended,
@@ -289,7 +288,7 @@ export default defineConfig([
     extends: [
       js.configs.recommended,
       ...tsConfigs.recommended, // Use non-type-checked config for stories
-      reactHooks.configs['recommended-latest'],
+      reactHooks.configs.flat['recommended-latest'],
       reactRefresh.configs.vite,
       eslintPluginUnicorn.configs.recommended,
       eslintPluginPrettierRecommended,

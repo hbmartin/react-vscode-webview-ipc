@@ -12,6 +12,8 @@ interface ConnectedView<T extends HostCalls> {
   view: vscode.WebviewView;
   context: RequestContext;
   pendingEvents: ViewApiEvent<T>[];
+  disposables: vscode.Disposable[];
+  retryFlushHandle?: ReturnType<typeof setTimeout>;
 }
 
 export interface WebviewApiProviderOptions {
@@ -27,6 +29,8 @@ export interface WebviewApiProviderOptions {
 
 // eslint-disable-next-line code-complete/no-magic-numbers-except-zero-one
 const DEFAULT_MAX_QUEUED_EVENTS = 100;
+// eslint-disable-next-line code-complete/no-magic-numbers-except-zero-one
+const RETRY_FLUSH_DELAY_MS = 100;
 
 export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposable {
   private readonly connectedViews = new Map<WebviewKey, ConnectedView<T>>();
@@ -81,8 +85,11 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
           this.logger.warn(
             `Event ${String(key)} was not delivered to view ${connectedView.context.viewType}:${viewId}; re-queueing`
           );
-          if (this.connectedViews.get(viewId) === connectedView) {
-            this.enqueueEvent(connectedView, event, viewId);
+          if (
+            this.connectedViews.get(viewId) === connectedView &&
+            this.enqueueEvent(connectedView, event, viewId)
+          ) {
+            this.scheduleRetryFlush(viewId, connectedView);
           }
         }
       );
@@ -93,9 +100,15 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
    * Register a webview with this API provider
    */
   registerView(id: WebviewKey, view: vscode.WebviewView): void {
-    if (this.connectedViews.has(id) && view === this.connectedViews.get(id)?.view) {
+    const existingView = this.connectedViews.get(id);
+    if (view === existingView?.view) {
       this.logger.error(`Webview ${id} already registered`);
       return;
+    }
+
+    if (existingView !== undefined) {
+      this.connectedViews.delete(id);
+      this.disposeConnectedViewResources(existingView);
     }
 
     const context: RequestContext = {
@@ -105,7 +118,14 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
       sessionId: generateId('session'),
     };
 
-    this.connectedViews.set(id, { view, context, pendingEvents: [] });
+    const connectedView: ConnectedView<T> = {
+      view,
+      context,
+      pendingEvents: [],
+      disposables: [],
+    };
+
+    this.connectedViews.set(id, connectedView);
     this.logger.info(`Registered webview: ${view.viewType}:${id}`);
 
     const visibilityListener = view.onDidChangeVisibility(() => {
@@ -113,17 +133,21 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
         this.flushPendingEvents(id);
       }
     });
-    this.disposables.push(visibilityListener);
+    this.addViewDisposable(connectedView, visibilityListener);
 
     // Clean up on dispose
     const disposeListener = view.onDidDispose(() => {
-      visibilityListener.dispose();
       if (this.connectedViews.get(id)?.view === view) {
         this.connectedViews.delete(id);
         this.logger.info(`Unregistered webview: ${view.viewType}:${id}`);
       }
+      this.disposeConnectedViewResources(connectedView);
     });
-    this.disposables.push(disposeListener);
+    if (this.connectedViews.get(id) === connectedView) {
+      this.addViewDisposable(connectedView, disposeListener);
+    } else {
+      disposeListener.dispose();
+    }
   }
 
   /**
@@ -137,19 +161,71 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
    * Dispose of all resources
    */
   dispose(): void {
-    for (const disposable of this.disposables) {
+    const connectedViews = [...this.connectedViews.values()];
+    this.connectedViews.clear();
+
+    for (const connectedView of connectedViews) {
+      this.disposeConnectedViewResources(connectedView);
+    }
+
+    for (const disposable of this.disposables.splice(0)) {
       disposable.dispose();
     }
-    this.connectedViews.clear();
     this.logger.info('WebviewApiProvider disposed');
   }
 
-  private enqueueEvent(connectedView: ConnectedView<T>, event: ViewApiEvent<T>, viewId: string) {
+  private addViewDisposable(connectedView: ConnectedView<T>, disposable: vscode.Disposable): void {
+    connectedView.disposables.push(disposable);
+    this.disposables.push(disposable);
+  }
+
+  private removeDisposable(disposable: vscode.Disposable): void {
+    const index = this.disposables.indexOf(disposable);
+    if (index !== -1) {
+      this.disposables.splice(index, 1);
+    }
+  }
+
+  private clearRetryFlush(connectedView: ConnectedView<T>): void {
+    if (connectedView.retryFlushHandle !== undefined) {
+      clearTimeout(connectedView.retryFlushHandle);
+      connectedView.retryFlushHandle = undefined;
+    }
+  }
+
+  private disposeConnectedViewResources(connectedView: ConnectedView<T>): void {
+    this.clearRetryFlush(connectedView);
+    connectedView.pendingEvents.length = 0;
+
+    for (const disposable of connectedView.disposables.splice(0)) {
+      this.removeDisposable(disposable);
+      disposable.dispose();
+    }
+  }
+
+  private scheduleRetryFlush(viewId: WebviewKey, connectedView: ConnectedView<T>): void {
+    if (!connectedView.view.visible || connectedView.retryFlushHandle !== undefined) {
+      return;
+    }
+
+    connectedView.retryFlushHandle = setTimeout(() => {
+      connectedView.retryFlushHandle = undefined;
+      if (this.connectedViews.get(viewId) === connectedView) {
+        this.flushPendingEvents(viewId);
+      }
+    }, RETRY_FLUSH_DELAY_MS);
+  }
+
+  private enqueueEvent(
+    connectedView: ConnectedView<T>,
+    event: ViewApiEvent<T>,
+    viewId: string
+  ): boolean {
     if (this.maxQueuedEvents <= 0) {
       this.logger.warn(
         `Dropping event '${String(event.key)}' for hidden view ${connectedView.context.viewType}:${viewId}: maxQueuedEvents is ${String(this.maxQueuedEvents)}`
       );
-      return;
+      return false;
     }
 
     if (connectedView.pendingEvents.length >= this.maxQueuedEvents) {
@@ -159,6 +235,7 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
       );
     }
     connectedView.pendingEvents.push(event);
+    return true;
   }
 
   /**
@@ -199,8 +276,11 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
           this.logger.warn(
             `Event ${String(event.key)} was not delivered while flushing ${connectedView.context.viewType}:${id}; re-queueing`
           );
-          if (this.connectedViews.get(id) === connectedView) {
-            this.enqueueEvent(connectedView, event, id);
+          if (
+            this.connectedViews.get(id) === connectedView &&
+            this.enqueueEvent(connectedView, event, id)
+          ) {
+            this.scheduleRetryFlush(id, connectedView);
           }
         }
       );
@@ -252,5 +332,6 @@ export class WebviewApiProvider<T extends HostCalls> implements vscode.Disposabl
       `Removing failed webview ${connectedView.context.viewType}:${viewId} from connectedViews`
     );
     this.connectedViews.delete(viewId);
+    this.disposeConnectedViewResources(connectedView);
   }
 }

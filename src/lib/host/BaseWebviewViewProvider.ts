@@ -27,6 +27,8 @@ export interface BaseWebviewViewProviderOptions {
 
 // eslint-disable-next-line code-complete/no-magic-numbers-except-zero-one
 const DEFAULT_MAX_QUEUED_MESSAGES = 100;
+// eslint-disable-next-line code-complete/no-magic-numbers-except-zero-one
+const PROVIDER_ID_SPLIT_LIMIT = 2;
 
 export abstract class BaseWebviewViewProvider<A extends object>
   implements vscode.WebviewViewProvider
@@ -45,7 +47,7 @@ export abstract class BaseWebviewViewProvider<A extends object>
     private readonly apiProvider?: WebviewApiProvider<HostCalls>,
     options?: BaseWebviewViewProviderOptions
   ) {
-    this.logger = getLogger(providerId.split('.')[1] ?? providerId);
+    this.logger = getLogger(providerId.split('.', PROVIDER_ID_SPLIT_LIMIT)[1] ?? providerId);
     this.queueHiddenMessages = options?.queueHiddenMessages ?? true;
     this.maxQueuedMessages = options?.maxQueuedMessages ?? DEFAULT_MAX_QUEUED_MESSAGES;
   }
